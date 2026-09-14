@@ -1,0 +1,371 @@
+@import 'tailwindcss';
+
+/* ═══════════════════════════════════════════════════════════════════
+   IMPERIVM MERCATORVM — visual identity
+
+   Parchment, marble, oxidised bronze and a little gold leaf. Everything
+   here is original: no third-party artwork, icons or fonts beyond the
+   two open Google faces loaded in index.html.
+   ═══════════════════════════════════════════════════════════════════ */
+
+@theme {
+  --font-display: 'Cinzel', 'Trajan Pro', Georgia, serif;
+  --font-body: 'EB Garamond', Georgia, 'Times New Roman', serif;
+  --font-caps: 'Cormorant SC', 'Cinzel', Georgia, serif;
+
+  /* Parchment — the map, the cards, the player board */
+  --color-parch-50: #f7efdc;
+  --color-parch-100: #f0e4ca;
+  --color-parch-200: #e6d5b4;
+  --color-parch-300: #d9c49c;
+  --color-parch-400: #c8ac7c;
+  --color-parch-500: #b08f5c;
+
+  /* Ink & umber — type, borders, engraving */
+  --color-ink-900: #1d1710;
+  --color-ink-800: #2e2418;
+  --color-ink-700: #43331f;
+  --color-ink-600: #5c4529;
+  --color-ink-500: #7a5f3b;
+
+  /* Marble — panels and frames */
+  --color-marble-50: #faf8f3;
+  --color-marble-100: #efebe0;
+  --color-marble-200: #ded8c8;
+  --color-marble-300: #c6bfab;
+  --color-marble-700: #4a463d;
+  --color-marble-800: #34312a;
+  --color-marble-900: #24221d;
+
+  /* The inland sea */
+  --color-sea-300: #9dc4cd;
+  --color-sea-400: #79a8b6;
+  --color-sea-500: #55879a;
+  --color-sea-600: #3d6a7e;
+  --color-sea-700: #2c5061;
+
+  /* Gold leaf */
+  --color-gold-300: #e6cd86;
+  --color-gold-400: #d4b558;
+  --color-gold-500: #b8912f;
+  --color-gold-600: #92701f;
+
+  /* Verdigris — oxidised bronze accents */
+  --color-verd-400: #6fa79a;
+  --color-verd-500: #47806f;
+  --color-verd-600: #2f6b5c;
+
+  --color-wine-600: #7d2340;
+  --color-terracotta-500: #b4552f;
+
+  --radius-card: 10px;
+}
+
+/* ── player colours, used by both CSS and SVG ───────────────────── */
+:root {
+  --p-crimson: #a02f31;
+  --p-crimson-dark: #6e1c1e;
+  --p-crimson-light: #cf6a63;
+
+  --p-azure: #2f5788;
+  --p-azure-dark: #1c3559;
+  --p-azure-light: #6e93c2;
+
+  --p-ochre: #c08a24;
+  --p-ochre-dark: #855c10;
+  --p-ochre-light: #e2bb64;
+
+  --p-verdigris: #2f7a63;
+  --p-verdigris-dark: #1a4f3f;
+  --p-verdigris-light: #6cb09a;
+
+  --p-obsidian: #3a3742;
+  --p-obsidian-dark: #211f27;
+  --p-obsidian-light: #75707f;
+
+  --shadow-relief: 0 1px 0 rgb(255 255 255 / 0.35), 0 2px 6px rgb(29 23 16 / 0.28);
+  --shadow-lift: 0 10px 30px -8px rgb(29 23 16 / 0.55), 0 2px 6px rgb(29 23 16 / 0.3);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  color: var(--color-ink-800);
+  background: #191612;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+}
+
+/* ── the room the board sits in ─────────────────────────────────── */
+.app-shell {
+  min-height: 100%;
+  background:
+    radial-gradient(120% 90% at 50% -10%, #3b332a 0%, #241f19 45%, #16130f 100%),
+    #16130f;
+}
+
+/* ═══════════════════════════════════ surfaces ═══════════════════ */
+
+/* Aged paper. The grain comes from a tiled fractal-noise data URI so it
+   costs nothing at runtime and never blurs when the board is zoomed. */
+.surface-parchment {
+  background-color: var(--color-parch-100);
+  background-image:
+    radial-gradient(90% 70% at 20% 10%, rgb(255 250 235 / 0.75), transparent 60%),
+    radial-gradient(80% 60% at 85% 90%, rgb(150 118 70 / 0.22), transparent 65%),
+    var(--tex-fibre);
+  box-shadow:
+    inset 0 0 60px rgb(120 92 52 / 0.28),
+    inset 0 0 0 1px rgb(90 68 38 / 0.25);
+}
+
+.surface-marble {
+  background-color: var(--color-marble-100);
+  background-image:
+    linear-gradient(168deg, rgb(255 255 255 / 0.7) 0%, transparent 42%),
+    linear-gradient(12deg, rgb(120 112 96 / 0.18) 0%, transparent 38%),
+    var(--tex-veins);
+}
+
+.surface-slate {
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 0.05), transparent 40%),
+    linear-gradient(180deg, #2b2721 0%, #221e19 100%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.07), 0 8px 24px -12px #000;
+}
+
+:root {
+  --tex-fibre: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='f'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23f)' opacity='0.055'/%3E%3C/svg%3E");
+  --tex-veins: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='v'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.012 0.05' numOctaves='5'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='discrete' tableValues='0 0 0 0 1'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='260' height='260' filter='url(%23v)' opacity='0.10'/%3E%3C/svg%3E");
+}
+
+/* ═══════════════════════════════════ frames ═════════════════════ */
+
+/* A carved stone frame: bevelled edge, hairline inlay, soft inner glow. */
+.frame-stone {
+  position: relative;
+  border: 1px solid rgb(24 20 15 / 0.85);
+  border-radius: 6px;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.18),
+    inset 0 -2px 6px rgb(0 0 0 / 0.25),
+    0 10px 26px -14px rgb(0 0 0 / 0.9);
+}
+
+.frame-stone::after {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border: 1px solid rgb(184 145 47 / 0.28);
+  border-radius: 3px;
+  pointer-events: none;
+}
+
+.frame-gold {
+  border: 1px solid var(--color-gold-600);
+  box-shadow:
+    inset 0 0 0 1px rgb(230 205 134 / 0.4),
+    0 0 0 1px rgb(0 0 0 / 0.5),
+    0 8px 22px -12px #000;
+}
+
+/* ═══════════════════════════════════ type ═══════════════════════ */
+
+.t-display {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.t-caps {
+  font-family: var(--font-caps);
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.t-label {
+  font-family: var(--font-caps);
+  font-size: 0.68rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-ink-500);
+}
+
+.t-engraved {
+  color: var(--color-ink-700);
+  text-shadow: 0 1px 0 rgb(255 252 244 / 0.65);
+}
+
+.t-inscribed {
+  color: var(--color-parch-200);
+  text-shadow: 0 1px 1px rgb(0 0 0 / 0.8), 0 -1px 0 rgb(255 255 255 / 0.06);
+}
+
+.t-gilt {
+  background: linear-gradient(180deg, #f0dfa4 0%, #d4b558 45%, #a4801f 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.4);
+}
+
+/* ═══════════════════════════════════ controls ═══════════════════ */
+
+.btn {
+  font-family: var(--font-caps);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-size: 0.78rem;
+  padding: 0.55rem 1.15rem;
+  border-radius: 4px;
+  border: 1px solid rgb(24 20 15 / 0.6);
+  cursor: pointer;
+  transition:
+    transform 120ms ease,
+    filter 140ms ease,
+    box-shadow 140ms ease;
+  user-select: none;
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.btn:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+  filter: grayscale(0.5);
+}
+
+.btn-primary {
+  color: #2a2010;
+  background: linear-gradient(180deg, #e6cd86 0%, #cfae52 48%, #a9862a 100%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.5),
+    0 4px 12px -4px rgb(0 0 0 / 0.6);
+}
+
+.btn-primary:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.btn-secondary {
+  color: var(--color-parch-100);
+  background: linear-gradient(180deg, #4a443a 0%, #34302a 100%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.12),
+    0 4px 12px -6px rgb(0 0 0 / 0.7);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  filter: brightness(1.18);
+}
+
+.btn-ghost {
+  color: var(--color-parch-300);
+  background: transparent;
+  border-color: rgb(216 196 156 / 0.28);
+}
+
+.btn-ghost:hover:not(:disabled) {
+  background: rgb(216 196 156 / 0.1);
+  color: var(--color-parch-100);
+}
+
+.btn-danger {
+  color: #f6e5e2;
+  background: linear-gradient(180deg, #8d3532 0%, #6a2422 100%);
+}
+
+/* ═══════════════════════════════════ board bits ═════════════════ */
+
+.city-hit {
+  cursor: pointer;
+}
+
+.legal-glow {
+  animation: legal-pulse 1.9s ease-in-out infinite;
+}
+
+@keyframes legal-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.route-hit {
+  cursor: pointer;
+}
+
+/* Scrollbars that belong in a bronze-and-parchment world */
+.scroll-slim {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(184 145 47 / 0.45) transparent;
+}
+
+.scroll-slim::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.scroll-slim::-webkit-scrollbar-thumb {
+  background: rgb(184 145 47 / 0.4);
+  border-radius: 4px;
+}
+
+.scroll-slim::-webkit-scrollbar-thumb:hover {
+  background: rgb(184 145 47 / 0.65);
+}
+
+.scroll-slim::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ═══════════════════════════════════ misc ══════════════════════ */
+
+.tooltip-panel {
+  background: linear-gradient(180deg, #2b2721 0%, #1f1c17 100%);
+  border: 1px solid rgb(184 145 47 / 0.4);
+  color: var(--color-parch-100);
+  box-shadow: 0 14px 34px -12px #000;
+  border-radius: 5px;
+  font-family: var(--font-body);
+}
+
+.divider-gold {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgb(184 145 47 / 0.55) 22%,
+    rgb(230 205 134 / 0.85) 50%,
+    rgb(184 145 47 / 0.55) 78%,
+    transparent
+  );
+}
+
+.no-select {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
