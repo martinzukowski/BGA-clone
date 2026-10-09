@@ -8,6 +8,7 @@ hub page linking to each.
 |---|---|---|
 | **Gemwright** | [`splendor/`](splendor) | Gem-trading engine builder vs 1–3 bots, inspired by *Splendor* |
 | **Imperium Mercatorum** | [`concordia/`](concordia) | Roman trading strategy vs 1–4 bots, inspired by *Concordia* |
+| **Hold'em Night** | [`poker/`](poker) | No-limit Texas Hold'em vs 4 bots with distinct playing styles |
 | **Globle** | [`globle/`](globle) | Find the mystery country on a 3D globe |
 | **Rubik's Cube Solver** | [`rubiks-cube-solver/`](rubiks-cube-solver) | Scan a real cube with the webcam and get a step-by-step solution |
 

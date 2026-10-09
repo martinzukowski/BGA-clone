@@ -22,6 +22,16 @@
       "accent": "#b5462f"
     },
     {
+      "slug": "poker",
+      "title": "Hold'em Night",
+      "tagline": "No-limit Texas Hold'em against four bots, each with its own style, from rock-tight to reckless bluffer.",
+      "inspiredBy": "Texas Hold'em",
+      "players": "You vs 4 bots",
+      "tags": ["Card game", "Poker", "AI opponents"],
+      "kind": "static",
+      "accent": "#b8323f"
+    },
+    {
       "slug": "globle",
       "title": "Globle",
       "tagline": "Find the mystery country. Every guess lights up the globe hotter or colder.",
