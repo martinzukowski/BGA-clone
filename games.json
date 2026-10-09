@@ -32,6 +32,16 @@
       "accent": "#b8323f"
     },
     {
+      "slug": "tank-arena",
+      "title": "Tank Arena",
+      "tagline": "3D tank battles on walled maps. Fight bots or friends online, earn credits and unlock new guns.",
+      "inspiredBy": "Tanki Online",
+      "players": "Solo vs bots · online with friends",
+      "tags": ["3D", "Action", "Multiplayer", "AI opponents"],
+      "kind": "static",
+      "accent": "#6b8a3a"
+    },
+    {
       "slug": "globle",
       "title": "Globle",
       "tagline": "Find the mystery country. Every guess lights up the globe hotter or colder.",

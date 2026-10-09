@@ -9,11 +9,14 @@ hub page linking to each.
 | **Gemwright** | [`splendor/`](splendor) | Gem-trading engine builder vs 1–3 bots, inspired by *Splendor* |
 | **Imperium Mercatorum** | [`concordia/`](concordia) | Roman trading strategy vs 1–4 bots, inspired by *Concordia* |
 | **Hold'em Night** | [`poker/`](poker) | No-limit Texas Hold'em vs 4 bots with distinct playing styles |
+| **Tank Arena** | [`tank-arena/`](tank-arena) | 3D tank battles vs bots or friends online, with unlockable weapons and hulls |
 | **Globle** | [`globle/`](globle) | Find the mystery country on a 3D globe |
 | **Rubik's Cube Solver** | [`rubiks-cube-solver/`](rubiks-cube-solver) | Scan a real cube with the webcam and get a step-by-step solution |
 
 Everything runs in the browser. There is no backend and no accounts; games keep their
-progress in `localStorage`.
+progress in `localStorage`. Tank Arena's online mode connects players' browsers directly over
+WebRTC: the host's browser runs the match, and the free [PeerJS](https://peerjs.com) cloud
+server is only used to introduce the browsers to each other.
 
 ## Run the whole site locally
 
