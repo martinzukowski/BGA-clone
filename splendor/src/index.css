@@ -1,0 +1,176 @@
+@import 'tailwindcss';
+
+/* ------------------------------------------------------------------ *
+ * Gemwright design tokens.
+ * A dark felt tabletop, jewel-toned gems, warm brass accents. Every colour
+ * here is original to this project.
+ * ------------------------------------------------------------------ */
+@theme {
+  --font-display: 'Iowan Old Style', 'Palatino Linotype', 'Book Antiqua', Georgia, serif;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  --color-felt-900: #0a0d13;
+  --color-felt-800: #121721;
+  --color-felt-700: #1a2130;
+  --color-felt-600: #232c3e;
+  --color-felt-500: #33405a;
+
+  --color-brass-400: #d9b169;
+  --color-brass-500: #c39445;
+  --color-brass-600: #8c6a2f;
+
+  --color-gem-white: #ece7db;
+  --color-gem-blue: #3d7bf0;
+  --color-gem-green: #1fa877;
+  --color-gem-red: #dc4646;
+  --color-gem-black: #6f6e86;
+  --color-gem-gold: #e8bf4d;
+
+  --color-parchment: #e9e3d5;
+  --color-muted: #8a97ae;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+/* Let the document grow with the board. Pinning html/body to height:100%
+   traps a sticky header inside a 100vh box and breaks scrolling. */
+html,
+body {
+  min-height: 100%;
+}
+
+#root {
+  min-height: 100dvh;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  color: var(--color-parchment);
+  background-color: var(--color-felt-900);
+  /* Subtle woven-felt vignette so the table does not read as a flat panel. */
+  background-image:
+    radial-gradient(120% 90% at 50% -10%, rgba(80, 110, 170, 0.18), transparent 60%),
+    radial-gradient(80% 60% at 90% 110%, rgba(160, 120, 60, 0.1), transparent 65%);
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ------------------------------------------------------------------ *
+ * Gem rendering. Facets are pure CSS: a clipped rhombus with two
+ * highlight wedges. No external art.
+ * ------------------------------------------------------------------ */
+.gem-facet {
+  clip-path: polygon(50% 0%, 100% 35%, 50% 100%, 0% 35%);
+  position: relative;
+  overflow: hidden;
+}
+.gem-facet::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(150deg, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0) 45%);
+}
+.gem-facet::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(200deg, rgba(0, 0, 0, 0) 55%, rgba(0, 0, 0, 0.35) 100%);
+}
+
+/* ------------------------------------------------------------------ *
+ * Animation. Everything is short and non-blocking; the game never waits
+ * on an animation to finish.
+ * ------------------------------------------------------------------ */
+@keyframes gw-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes gw-pop {
+  0% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(1.12);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@keyframes gw-flash {
+  0% {
+    box-shadow: 0 0 0 0 rgba(217, 177, 105, 0.85);
+  }
+  100% {
+    box-shadow: 0 0 0 14px rgba(217, 177, 105, 0);
+  }
+}
+@keyframes gw-float-up {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 4px);
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -34px);
+  }
+}
+@keyframes gw-shimmer {
+  from {
+    background-position: -200% 0;
+  }
+  to {
+    background-position: 200% 0;
+  }
+}
+
+.anim-rise {
+  animation: gw-rise 260ms cubic-bezier(0.2, 0.8, 0.3, 1) both;
+}
+.anim-pop {
+  animation: gw-pop 320ms cubic-bezier(0.3, 1.4, 0.5, 1) both;
+}
+.anim-flash {
+  animation: gw-flash 700ms ease-out both;
+}
+.anim-float-up {
+  animation: gw-float-up 1100ms ease-out both;
+}
+.anim-thinking {
+  background-image: linear-gradient(
+    100deg,
+    transparent 20%,
+    rgba(217, 177, 105, 0.25) 45%,
+    transparent 70%
+  );
+  background-size: 200% 100%;
+  animation: gw-shimmer 1.4s linear infinite;
+}
+
+/* Respect the user's motion preference: keep the game, drop the flourish. */
+@media (prefers-reduced-motion: reduce) {
+  .anim-rise,
+  .anim-pop,
+  .anim-flash,
+  .anim-float-up,
+  .anim-thinking {
+    animation: none !important;
+  }
+}
+
+/* Thin, unobtrusive scrollbars for the log and modals. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-felt-500) transparent;
+}
