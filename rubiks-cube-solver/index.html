@@ -1,0 +1,549 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cube Solver</title>
+<style>
+  :root {
+    --bg: #f5f5f4; --card: #ffffff; --text: #1c1917; --muted: #78716c;
+    --border: #e7e5e4; --accent: #2563eb; --accent-text: #fff;
+    --ok: #15803d; --err: #b91c1c; --empty: #d6d3d1; --hl: #f59e0b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0c0a09; --card: #1c1917; --text: #f5f5f4; --muted: #a8a29e;
+      --border: #292524; --accent: #3b82f6; --ok: #4ade80; --err: #f87171; --empty: #44403c;
+    }
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { max-width: 1100px; margin: 0 auto; padding: 24px 16px 8px; }
+  h1 { margin: 0; font-size: 24px; }
+  h2 { margin: 0 0 8px; font-size: 18px; }
+  header p, .muted { color: var(--muted); margin: 4px 0 0; }
+  main { max-width: 1100px; margin: 0 auto; padding: 8px 16px 48px; display: grid; gap: 16px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+  .scan { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 16px; }
+  @media (max-width: 760px) { .scan { grid-template-columns: 1fr; } }
+  .cam-wrap { position: relative; background: #000; border-radius: 8px; overflow: hidden; aspect-ratio: 4/3; }
+  .cam-wrap video, .cam-wrap canvas { position: absolute; inset: 0; width: 100%; height: 100%;
+                                      object-fit: contain; transform: scaleX(-1); }
+  #camMsg { position: absolute; inset: 0; display: grid; place-items: center; color: #e7e5e4;
+            text-align: center; padding: 16px; }
+  button { font: inherit; border: 1px solid var(--border); background: var(--card); color: var(--text);
+           border-radius: 8px; padding: 8px 14px; cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 12px 0; }
+  .steps button { padding: 6px; font-size: 13px; text-align: left; display: flex; gap: 6px; align-items: center; }
+  .steps button.active { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent) inset; }
+  .steps .dot { width: 14px; height: 14px; border-radius: 3px; background: var(--empty); flex: none;
+                border: 1px solid rgba(0,0,0,.25); }
+  #stepTitle { font-weight: 700; font-size: 17px; }
+  #stepHint { margin: 6px 0 0; }
+  .net { display: grid; grid-template-columns: repeat(12, 1fr); gap: 3px; max-width: 480px; }
+  .net .s { aspect-ratio: 1; border-radius: 4px; border: 1px solid rgba(0,0,0,.3); background: var(--empty); }
+  .net.edit .s:not(.center) { cursor: pointer; }
+  .net .s.center { box-shadow: inset 0 0 0 2px rgba(0,0,0,.25); }
+  .net .s.turn { outline: 3px solid var(--hl); outline-offset: -1px; }
+  .two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+  @media (max-width: 760px) { .two { grid-template-columns: 1fr; } }
+  #validation { margin: 12px 0; min-height: 1.5em; }
+  .ok { color: var(--ok); } .err { color: var(--err); }
+  .moves { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0; }
+  .moves button { padding: 4px 9px; font-family: ui-monospace, Consolas, monospace; font-weight: 600; }
+  .moves button.done { opacity: .4; }
+  .moves button.cur { background: var(--hl); border-color: var(--hl); color: #1c1917; }
+  #bigMove { font: 700 48px/1 ui-monospace, Consolas, monospace; }
+  #moveDesc { margin: 6px 0 12px; }
+  .swatch { display: inline-block; width: .9em; height: .9em; border-radius: 3px; vertical-align: -1px;
+            border: 1px solid rgba(0,0,0,.3); }
+  .linkish { background: none; border: none; color: var(--accent); padding: 0; text-decoration: underline; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Rubik's Cube Solver</h1>
+  <p>Scan the six faces with your camera, check the colors, then follow the solution step by step.</p>
+</header>
+
+<main>
+  <section class="card scan">
+    <div class="cam-wrap">
+      <video id="video" playsinline muted></video>
+      <canvas id="overlay"></canvas>
+      <div id="camMsg"><div><p>Camera is off.</p><button class="primary" id="startCam">Start camera</button></div></div>
+    </div>
+    <div>
+      <div id="stepTitle"></div>
+      <p id="stepHint" class="muted"></p>
+      <div class="steps" id="steps"></div>
+      <div class="row">
+        <button class="primary" id="captureBtn" disabled>Capture face (Space)</button>
+      </div>
+      <p class="muted" style="font-size:13px;margin-top:12px">
+        Fill the grid with the face, with even light and no glare.
+        Each face's center sticker sets its color, so start from any orientation you like.
+      </p>
+    </div>
+  </section>
+
+  <section class="card two">
+    <div>
+      <h2>2. Check colors</h2>
+      <p class="muted">Click a sticker to cycle its color if the scan got one wrong. Centers can't change.</p>
+      <div id="validation"></div>
+      <div class="row">
+        <button class="primary" id="solveBtn" disabled>Solve</button>
+        <button id="resetBtn">Reset</button>
+        <button class="linkish" id="demoBtn">Try a random scramble</button>
+      </div>
+      <p id="solverStatus" class="muted" style="font-size:13px"></p>
+    </div>
+    <div class="net edit" id="editNet"></div>
+  </section>
+
+  <section class="card two" id="solutionCard" hidden>
+    <div>
+      <h2>3. Solution</h2>
+      <p id="holdHint"></p>
+      <p id="solMeta" class="muted"></p>
+      <div id="bigMove"></div>
+      <p id="moveDesc"></p>
+      <div class="row">
+        <button id="prevBtn">◀ Back</button>
+        <button class="primary" id="nextBtn">Next ▶</button>
+        <button id="restartBtn">Restart</button>
+      </div>
+      <div class="moves" id="moves"></div>
+    </div>
+    <div class="net" id="playNet"></div>
+  </section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/cubejs@1.3.2/lib/cube.js"></script>
+<script>
+const CUBEJS = 'https://cdn.jsdelivr.net/npm/cubejs@1.3.2/lib/';
+// Face indices follow the Kociemba facelet order: U R F D L B.
+const FACE_LETTERS = 'URFDLB';
+const FACE_NAMES = ['Top', 'Right', 'Front', 'Bottom', 'Left', 'Back'];
+const SCAN_ORDER = [2, 1, 5, 4, 0, 3];
+const SCAN_HINTS = {
+  2: 'Hold the cube with the face you want as FRONT toward the camera. Keep the same face on top for the next three steps. (Common choice: white on top, green in front.)',
+  1: 'Turn the whole cube a quarter turn to the left, so the right face now faces the camera. Same face on top.',
+  5: 'Turn the cube a quarter turn left again. The back face now faces the camera.',
+  4: 'Turn the cube a quarter turn left once more. The left face now faces the camera.',
+  0: 'Turn left once more so the front faces you again, then tip the TOP toward the camera. The back edge is now at the top of the frame.',
+  3: 'Go back to the front position, then tip the BOTTOM toward the camera. The front edge is now at the top of the frame.'
+};
+// Where each face sits in the 12x9 unfolded net (column, row of its top-left sticker).
+const NET_POS = [[3, 0], [6, 3], [3, 3], [3, 6], [0, 3], [9, 3]];
+const NAMED = {
+  White: [240, 240, 240], Yellow: [250, 215, 30], Red: [200, 30, 40],
+  Orange: [250, 120, 20], Blue: [20, 80, 210], Green: [20, 160, 70]
+};
+const DEFAULT_PALETTE = [NAMED.White, NAMED.Red, NAMED.Green, NAMED.Yellow, NAMED.Orange, NAMED.Blue];
+
+// ---------- state ----------
+let samples = Array(6).fill(null);   // per face: 9 RGB samples from the camera
+let facelets = Array(54).fill(-1);   // per sticker: face index of its color, -1 = unknown
+let overrides = {};                  // manual corrections, sticker index -> color
+let palette = DEFAULT_PALETTE.map(c => c.slice());
+let colorNames = ['White', 'Red', 'Green', 'Yellow', 'Orange', 'Blue'];
+let current = SCAN_ORDER[0];
+for (let f = 0; f < 6; f++) facelets[9 * f + 4] = f;
+
+// ---------- color helpers ----------
+function rgbToLab([r, g, b]) {
+  const lin = v => (v /= 255) <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+  const R = lin(r), G = lin(g), B = lin(b);
+  const f = t => t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116;
+  const x = f((R * 0.4124 + G * 0.3576 + B * 0.1805) / 0.95047);
+  const y = f(R * 0.2126 + G * 0.7152 + B * 0.0722);
+  const z = f((R * 0.0193 + G * 0.1192 + B * 0.9505) / 1.08883);
+  return [116 * y - 16, 500 * (x - y), 200 * (y - z)];
+}
+const labDist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+// Scale a sample to full brightness before comparing, so shadows don't change its color.
+const colorFeature = rgb => { const m = Math.max(...rgb, 1); return rgbToLab(rgb.map(v => v * 255 / m)); };
+
+function guessName([r, g, b]) {
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+  const s = max ? d / max : 0;
+  if (s < 0.28) return 'White';
+  let h = 0;
+  if (d) {
+    if (max === r) h = ((g - b) / d) % 6;
+    else if (max === g) h = (b - r) / d + 2;
+    else h = (r - g) / d + 4;
+  }
+  h = (h * 60 + 360) % 360;
+  if (h < 12 || h >= 330) return 'Red';
+  if (h < 38) return 'Orange';
+  if (h < 75) return 'Yellow';
+  if (h < 170) return 'Green';
+  if (h < 270) return 'Blue';
+  return 'Red';
+}
+const css = c => `rgb(${c[0] | 0},${c[1] | 0},${c[2] | 0})`;
+const swatch = f => `<span class="swatch" style="background:${css(palette[f])}"></span>`;
+const colorLabel = f => `${swatch(f)} ${colorNames[f]}`;
+
+// ---------- classification ----------
+// Each sticker is matched to the closest center color. Once all six faces are scanned,
+// each color is capped at 9 stickers and the color references are re-averaged over their
+// stickers a few times (a constrained k-means). This fixes most red/orange and
+// white/yellow mix-ups under uneven light.
+function assignColors(feats, known, anchors, cap) {
+  const out = Array(54).fill(-1);
+  known.forEach(f => out[9 * f + 4] = f);
+  const pairs = [];
+  known.forEach(f => { for (let i = 0; i < 9; i++) if (i !== 4)
+    known.forEach(c => pairs.push([labDist(feats[9 * f + i], anchors[c]), 9 * f + i, c])); });
+  pairs.sort((a, b) => a[0] - b[0]);
+  const used = Array(6).fill(0);
+  for (const [, idx, c] of pairs) {
+    if (out[idx] !== -1 || used[c] >= cap) continue;
+    out[idx] = c; used[c]++;
+  }
+  return out;
+}
+
+function classify() {
+  const known = [0, 1, 2, 3, 4, 5].filter(f => samples[f]);
+  const feats = [];
+  known.forEach(f => samples[f].forEach((rgb, i) => feats[9 * f + i] = colorFeature(rgb)));
+  let anchors = [];
+  known.forEach(f => anchors[f] = feats[9 * f + 4]);
+  const full = known.length === 6;
+  facelets = assignColors(feats, known, anchors, full ? 8 : Infinity);
+  for (let it = 0; full && it < 5; it++) {
+    anchors = anchors.map((_, c) => {
+      const m = [0, 0, 0];
+      facelets.forEach((o, i) => { if (o === c) for (let k = 0; k < 3; k++) m[k] += feats[i][k] / 9; });
+      return m;
+    });
+    facelets = assignColors(feats, known, anchors, 8);
+  }
+  for (const k in overrides) facelets[k] = overrides[k];
+  for (let f = 0; f < 6; f++) facelets[9 * f + 4] = f;
+  updatePalette();
+}
+
+function updatePalette() {
+  const names = [], cols = [];
+  for (let f = 0; f < 6; f++) {
+    if (samples[f]) { names[f] = guessName(samples[f][4]); cols[f] = samples[f][4]; }
+    else { names[f] = ['White', 'Red', 'Green', 'Yellow', 'Orange', 'Blue'][f]; cols[f] = DEFAULT_PALETTE[f]; }
+  }
+  // Use clean display colors when the six centers got six distinct names.
+  const distinct = new Set(names).size === 6;
+  for (let f = 0; f < 6; f++) {
+    colorNames[f] = distinct ? names[f] : `${FACE_NAMES[f]}-center color`;
+    palette[f] = distinct ? NAMED[names[f]] : cols[f];
+  }
+}
+
+// ---------- validation ----------
+function faceletString() { return facelets.map(c => FACE_LETTERS[c]).join(''); }
+
+function validate() {
+  const missing = SCAN_ORDER.filter(f => !samples[f]);
+  if (missing.length && facelets.includes(-1))
+    return { ok: false, msg: `Scan the remaining faces: ${missing.map(f => FACE_NAMES[f]).join(', ')}.` };
+  const counts = Array(6).fill(0);
+  facelets.forEach(c => counts[c]++);
+  const off = counts.map((n, f) => n !== 9 ? `${colorLabel(f)}: ${n}` : null).filter(Boolean);
+  if (off.length) return { ok: false, msg: `Each color must appear 9 times. Off: ${off.join(', ')}.` };
+
+  const s = faceletString();
+  const cube = Cube.fromString(s);
+  const perm = (p, n) => new Set(p).size === n;
+  if (cube.asString() !== s || !perm(cube.cp, 8) || !perm(cube.ep, 12))
+    return { ok: false, msg: 'Some corner or edge pieces have impossible color combinations. Check stickers that look alike (red/orange, white/yellow) or rescan a face.' };
+  const sum = a => a.reduce((x, y) => x + y, 0);
+  if (sum(cube.co) % 3) return { ok: false, msg: 'One corner looks twisted. That can\'t happen on a real cube, so a sticker is probably misread.' };
+  if (sum(cube.eo) % 2) return { ok: false, msg: 'One edge looks flipped. That can\'t happen on a real cube, so a sticker is probably misread.' };
+  const parity = p => { let x = 0; for (let i = 0; i < p.length; i++) for (let j = i + 1; j < p.length; j++) if (p[i] > p[j]) x ^= 1; return x; };
+  if (parity(cube.cp) !== parity(cube.ep)) return { ok: false, msg: 'Two pieces appear swapped, which can\'t happen on a real cube. Check for a misread sticker.' };
+  if (cube.isSolved()) return { ok: true, solved: true, msg: 'This cube is already solved.' };
+  return { ok: true, msg: 'Cube state is valid.' };
+}
+
+// ---------- net rendering ----------
+function buildNet(el, editable) {
+  el.innerHTML = '';
+  for (let f = 0; f < 6; f++) for (let i = 0; i < 9; i++) {
+    const d = document.createElement('div');
+    d.className = 's' + (i === 4 ? ' center' : '');
+    d.style.gridColumn = NET_POS[f][0] + (i % 3) + 1;
+    d.style.gridRow = NET_POS[f][1] + Math.floor(i / 3) + 1;
+    d.dataset.idx = 9 * f + i;
+    d.title = FACE_NAMES[f];
+    if (editable && i !== 4) d.onclick = () => cycleSticker(9 * f + i);
+    el.appendChild(d);
+  }
+}
+function paintNet(el, state, turnFace = -1) {
+  for (const d of el.children) {
+    const idx = +d.dataset.idx, c = state[idx];
+    d.style.background = c >= 0 ? css(palette[c]) : '';
+    d.classList.toggle('turn', Math.floor(idx / 9) === turnFace);
+  }
+}
+function cycleSticker(idx) {
+  facelets[idx] = (facelets[idx] + 1) % 6;
+  overrides[idx] = facelets[idx];
+  refresh();
+}
+
+// ---------- UI ----------
+const $ = id => document.getElementById(id);
+const editNet = $('editNet'), playNet = $('playNet');
+buildNet(editNet, true); buildNet(playNet, false);
+
+function renderSteps() {
+  $('steps').innerHTML = '';
+  SCAN_ORDER.forEach((f, n) => {
+    const b = document.createElement('button');
+    b.className = f === current ? 'active' : '';
+    const col = samples[f] ? css(samples[f][4]) : '';
+    b.innerHTML = `<span class="dot" style="background:${col}"></span>${n + 1}. ${FACE_NAMES[f]}${samples[f] ? ' ✓' : ''}`;
+    b.onclick = () => { current = f; renderSteps(); };
+    $('steps').appendChild(b);
+  });
+  const n = SCAN_ORDER.indexOf(current);
+  const allDone = samples.every(Boolean);
+  $('stepTitle').textContent = allDone ? 'All 6 faces scanned'
+    : `Step ${n + 1} of 6: scan the ${FACE_NAMES[current]} face`;
+  $('stepHint').textContent = allDone
+    ? `Check the colors below. To rescan a face, select it (currently: ${FACE_NAMES[current]}) and capture again.`
+    : SCAN_HINTS[current];
+}
+
+function refresh() {
+  paintNet(editNet, facelets);
+  const v = validate();
+  $('validation').innerHTML = `<span class="${v.ok ? 'ok' : 'err'}">${v.msg}</span>`;
+  $('solveBtn').disabled = !v.ok || v.solved || !solverReady;
+}
+
+$('resetBtn').onclick = () => {
+  samples = Array(6).fill(null); overrides = {}; current = SCAN_ORDER[0];
+  classify(); renderSteps(); refresh(); $('solutionCard').hidden = true;
+};
+$('demoBtn').onclick = () => {
+  const str = Cube.random().asString();
+  samples = Array(6).fill(null); overrides = {};
+  updatePalette();
+  facelets = [...str].map(ch => FACE_LETTERS.indexOf(ch));
+  facelets.forEach((c, i) => overrides[i] = c);
+  renderSteps(); refresh();
+};
+
+// ---------- camera ----------
+const video = $('video'), overlay = $('overlay');
+const grab = document.createElement('canvas');
+const gctx = grab.getContext('2d', { willReadFrequently: true });
+let live = null;
+
+$('startCam').onclick = async () => {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { width: { ideal: 1280 }, height: { ideal: 960 }, facingMode: 'user' }, audio: false
+    });
+    video.srcObject = stream;
+    await video.play();
+    $('camMsg').hidden = true;
+    $('captureBtn').disabled = false;
+    requestAnimationFrame(loop);
+  } catch (e) {
+    $('camMsg').innerHTML = `<p>Couldn't open the camera (${e.name}).<br>Allow camera access, and open this page via <code>start.bat</code> (http://localhost) rather than as a file.</p>`;
+  }
+};
+
+// Returns the 9 cell rectangles of the scan grid, in camera-image coordinates
+// (unmirrored: row-major, left-to-right as the camera sees the face).
+function gridCells(w, h) {
+  const side = Math.min(w, h) * 0.6, x0 = (w - side) / 2, y0 = (h - side) / 2, cs = side / 3;
+  const cells = [];
+  for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) cells.push([x0 + c * cs, y0 + r * cs, cs]);
+  return { cells, x0, y0, side };
+}
+
+function sampleFrame() {
+  const w = 480, h = Math.round(w * video.videoHeight / video.videoWidth);
+  grab.width = w; grab.height = h;
+  gctx.drawImage(video, 0, 0, w, h);
+  return gridCells(w, h).cells.map(([x, y, cs]) => {
+    const p = Math.max(2, Math.round(cs * 0.4)), px = Math.round(x + (cs - p) / 2), py = Math.round(y + (cs - p) / 2);
+    const data = gctx.getImageData(px, py, p, p).data;
+    const ch = [[], [], []];
+    for (let i = 0; i < data.length; i += 4) { ch[0].push(data[i]); ch[1].push(data[i + 1]); ch[2].push(data[i + 2]); }
+    // Median per channel is robust to glare spots and sticker edges.
+    return ch.map(a => { a.sort((x, y) => x - y); return a[a.length >> 1]; });
+  });
+}
+
+function loop() {
+  if (!video.videoWidth) return requestAnimationFrame(loop);
+  live = sampleFrame();
+  const W = overlay.width = video.videoWidth, H = overlay.height = video.videoHeight;
+  const ctx = overlay.getContext('2d');
+  const { cells, x0, y0, side } = gridCells(W, H);
+  ctx.lineWidth = Math.max(2, W / 320);
+  ctx.strokeStyle = 'rgba(255,255,255,.9)';
+  ctx.strokeRect(x0, y0, side, side);
+  cells.forEach(([x, y, cs], i) => {
+    ctx.strokeRect(x, y, cs, cs);
+    ctx.fillStyle = css(live[i]);
+    ctx.beginPath(); ctx.arc(x + cs / 2, y + cs / 2, cs * 0.14, 0, 7); ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,.6)'; ctx.stroke(); ctx.strokeStyle = 'rgba(255,255,255,.9)';
+  });
+  requestAnimationFrame(loop);
+}
+
+function capture() {
+  if (!live) return;
+  samples[current] = live.map(c => c.slice());
+  for (let i = 0; i < 9; i++) delete overrides[9 * current + i];
+  classify();
+  const next = SCAN_ORDER.find(f => !samples[f]);
+  if (next !== undefined) current = next;
+  renderSteps(); refresh();
+}
+$('captureBtn').onclick = capture;
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.code === 'Space' && !$('captureBtn').disabled) { e.preventDefault(); capture(); }
+  if (!$('solutionCard').hidden && e.code === 'ArrowRight') step(1);
+  if (!$('solutionCard').hidden && e.code === 'ArrowLeft') step(-1);
+});
+
+// ---------- solver (Kociemba two-phase via cubejs, in a Web Worker) ----------
+// The worker returns a first solution quickly, then keeps searching for shorter ones.
+// We stop it after SEARCH_MS and keep the best result.
+const SEARCH_MS = 10000;
+const workerSrc = `
+  importScripts('${CUBEJS}cube.js', '${CUBEJS}solve.js');
+  Cube.initSolver();
+  postMessage({ type: 'ready' });
+  const len = s => s ? s.split(' ').length : 0;
+  onmessage = e => {
+    const cube = Cube.fromString(e.data);
+    let best = null;
+    try { best = cube.solve(); } catch (err) {}
+    if (best === null) { postMessage({ type: 'fail' }); return; }
+    postMessage({ type: 'solution', moves: best });
+    while (len(best) > 1) {
+      let s = null;
+      try { s = cube.solve(len(best) - 1); } catch (err) {}
+      if (!s) break;
+      best = s;
+      postMessage({ type: 'solution', moves: best });
+    }
+    postMessage({ type: 'done' });
+  };`;
+let worker = null, solverReady = false, searchTimer = null, solveStart = 0;
+
+function startWorker() {
+  solverReady = false;
+  $('solverStatus').textContent = 'Preparing solver tables (a few seconds)…';
+  worker = new Worker(URL.createObjectURL(new Blob([workerSrc], { type: 'text/javascript' })));
+  worker.onmessage = ({ data }) => {
+    if (data.type === 'ready') { solverReady = true; $('solverStatus').textContent = 'Solver ready.'; refresh(); }
+    else if (data.type === 'solution') showSolution(data.moves, false);
+    else if (data.type === 'done') finishSearch(true);
+    else if (data.type === 'fail') { finishSearch(false); $('solverStatus').textContent = 'No solution found. Check the colors.'; }
+  };
+  worker.onerror = () => { $('solverStatus').textContent = 'Solver failed to load. Check your internet connection (the solver library loads from a CDN).'; };
+}
+function finishSearch(done) {
+  clearTimeout(searchTimer);
+  $('solveBtn').disabled = false;
+  if (!done) return;
+  $('solMeta').textContent = `${movesList.length} moves (shortest the two-phase search found, ${((performance.now() - solveStart) / 1000).toFixed(1)}s).`;
+}
+
+$('solveBtn').onclick = () => {
+  const v = validate();
+  if (!v.ok || !solverReady) return;
+  $('solveBtn').disabled = true;
+  $('solverStatus').textContent = 'Searching…';
+  solveStart = performance.now();
+  movesList = [];
+  worker.postMessage(faceletString());
+  searchTimer = setTimeout(() => {
+    // Out of time: keep the best solution found so far and restart the worker.
+    worker.terminate();
+    $('solMeta').textContent = `${movesList.length} moves (best found in ${SEARCH_MS / 1000}s of searching).`;
+    $('solveBtn').disabled = false;
+    startWorker();
+  }, SEARCH_MS);
+};
+
+// ---------- solution player ----------
+let movesList = [], stepIdx = 0, startState = null;
+const MOVE_FACE = { U: 'top', D: 'bottom', F: 'front', B: 'back', L: 'left', R: 'right' };
+
+function showSolution(moves, done) {
+  movesList = moves.trim().split(/\s+/).filter(Boolean);
+  startState = faceletString();
+  stepIdx = 0;
+  $('solutionCard').hidden = false;
+  $('holdHint').innerHTML = `Hold the cube with ${colorLabel(0)} center on top and ${colorLabel(2)} center facing you. Keep it that way the whole time.`;
+  $('solMeta').textContent = `${movesList.length} moves so far, still looking for a shorter one…`;
+  $('solverStatus').textContent = `Found a ${movesList.length}-move solution.`;
+  $('moves').innerHTML = '';
+  movesList.forEach((m, i) => {
+    const b = document.createElement('button');
+    b.textContent = m;
+    b.onclick = () => { stepIdx = i; renderPlayer(); };
+    $('moves').appendChild(b);
+  });
+  renderPlayer();
+}
+
+function describe(m) {
+  const face = MOVE_FACE[m[0]];
+  if (m[1] === '2') return `Turn the <b>${face}</b> face a half turn (180°).`;
+  const dir = m[1] === "'" ? 'counter-clockwise' : 'clockwise';
+  return `Turn the <b>${face}</b> face 90° ${dir}, as seen looking straight at that face.`;
+}
+
+function renderPlayer() {
+  const cube = Cube.fromString(startState);
+  if (stepIdx) cube.move(movesList.slice(0, stepIdx).join(' '));
+  const state = [...cube.asString()].map(ch => FACE_LETTERS.indexOf(ch));
+  const m = movesList[stepIdx];
+  paintNet(playNet, state, m ? FACE_LETTERS.indexOf(m[0]) : -1);
+  [...$('moves').children].forEach((b, i) => {
+    b.classList.toggle('done', i < stepIdx);
+    b.classList.toggle('cur', i === stepIdx);
+  });
+  if (m) {
+    $('bigMove').textContent = m;
+    $('moveDesc').innerHTML = `Move ${stepIdx + 1} of ${movesList.length}. ${describe(m)}`;
+  } else {
+    $('bigMove').textContent = '✓';
+    $('moveDesc').textContent = 'Solved!';
+  }
+  $('prevBtn').disabled = stepIdx === 0;
+  $('nextBtn').disabled = stepIdx >= movesList.length;
+}
+function step(d) { stepIdx = Math.max(0, Math.min(movesList.length, stepIdx + d)); renderPlayer(); }
+$('prevBtn').onclick = () => step(-1);
+$('nextBtn').onclick = () => step(1);
+$('restartBtn').onclick = () => { stepIdx = 0; renderPlayer(); };
+
+renderSteps();
+classify();
+refresh();
+startWorker();
+</script>
+</body>
+</html>
