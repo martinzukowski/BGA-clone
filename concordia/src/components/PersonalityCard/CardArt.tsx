@@ -16,7 +16,7 @@
 import { memo, useEffect, useState } from 'react';
 import type { CardRole } from '../../game/engine/types';
 
-const ART_PATH = (role: CardRole) => `/assets/cards/${role}.webp`;
+const ART_PATH = (role: CardRole) => `${import.meta.env.BASE_URL}assets/cards/${role}.webp`;
 
 /** Roles whose .webp exists. Probed once per role, cached for the session. */
 const probed = new Map<CardRole, boolean>();

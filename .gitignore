@@ -1,0 +1,3 @@
+# Built site (produced by `npm run build`)
+/dist
+node_modules

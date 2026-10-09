@@ -1,0 +1,45 @@
+{
+  "$comment": "One entry per game. 'slug' is both the folder name and the URL path. 'kind' is 'vite' (built with Vite under /<slug>/) or 'static' (folder copied as-is). The hub lists games in this order.",
+  "games": [
+    {
+      "slug": "splendor",
+      "title": "Gemwright",
+      "tagline": "Trade gems, build a jeweller's engine, and court the patrons of the guild.",
+      "inspiredBy": "Splendor",
+      "players": "You vs 1–3 bots",
+      "tags": ["Board game", "Engine building", "AI opponents"],
+      "kind": "vite",
+      "accent": "#c39445"
+    },
+    {
+      "slug": "concordia",
+      "title": "Imperium Mercatorum",
+      "tagline": "Run a Roman merchant house: send colonists along roads and sea lanes and build a trade network.",
+      "inspiredBy": "Concordia",
+      "players": "You vs 1–4 bots",
+      "tags": ["Board game", "Strategy", "AI opponents"],
+      "kind": "vite",
+      "accent": "#b5462f"
+    },
+    {
+      "slug": "globle",
+      "title": "Globle",
+      "tagline": "Find the mystery country. Every guess lights up the globe hotter or colder.",
+      "inspiredBy": "Globle",
+      "players": "Solo · unlimited replays",
+      "tags": ["Geography", "Puzzle"],
+      "kind": "static",
+      "accent": "#3a9b6f"
+    },
+    {
+      "slug": "rubiks-cube-solver",
+      "title": "Rubik's Cube Solver",
+      "tagline": "Scan your real cube with the webcam, then follow a step-by-step solution.",
+      "inspiredBy": null,
+      "players": "Webcam required",
+      "tags": ["Tool", "Computer vision"],
+      "kind": "static",
+      "accent": "#3d7bf0"
+    }
+  ]
+}

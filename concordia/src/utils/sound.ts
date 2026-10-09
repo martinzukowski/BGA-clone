@@ -31,7 +31,7 @@ export type SoundId =
   | 'score'
   | 'victory';
 
-const BASE = '/assets/sounds';
+const BASE = `${import.meta.env.BASE_URL}assets/sounds`;
 
 const cache = new Map<string, HTMLAudioElement | null>();
 let enabled = true;
