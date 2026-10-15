@@ -320,7 +320,61 @@
   .dialog h2 { margin: 0 0 8px; font-size: 24px; }
   .dialog p { color: var(--muted); margin: 0 0 20px; }
 
+  /* ---------- Help ---------- */
+  .iconbtn.help { font-weight: 800; font-size: 15px; color: var(--gold); border-color: rgba(245,196,81,.35); }
+  .dialog.helpbox {
+    text-align: left; width: min(640px, calc(100vw - 32px)); max-width: none; padding: 0;
+    max-height: min(86vh, 760px); display: flex; flex-direction: column; overflow: hidden;
+  }
+  .helphead {
+    display: flex; justify-content: space-between; align-items: center; gap: 10px;
+    padding: 14px 16px 0 18px; border-bottom: 1px solid var(--line);
+  }
+  .tabs { display: flex; gap: 4px; }
+  .tab {
+    font: inherit; font-weight: 600; font-size: 14px; color: var(--muted); background: none; cursor: pointer;
+    border: 0; border-bottom: 2px solid transparent; padding: 8px 12px 11px; margin-bottom: -1px;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--gold); border-bottom-color: var(--gold); }
+  .helphead .iconbtn { width: 30px; height: 30px; font-size: 13px; margin-bottom: 8px; }
+  .tabpane { overflow-y: auto; padding: 16px 22px 22px; }
+  .tabpane::-webkit-scrollbar { width: 6px; } .tabpane::-webkit-scrollbar-thumb { background: #2c3532; border-radius: 3px; }
+  .tabpane h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 1.3px; color: var(--gold); margin: 18px 0 6px; }
+  .tabpane h3:first-child { margin-top: 0; }
+  .tabpane p, .tabpane li { color: #c8d2cd; margin: 0 0 6px; }
+  .tabpane ul, .tabpane ol { margin: 0 0 6px; padding-left: 20px; }
+  .tabpane b { color: var(--text); }
+  .tabpane .note { font-size: 12.5px; color: var(--muted); }
+  .streets { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 6px 0 4px; }
+  .streets div { background: rgba(255,255,255,.04); border: 1px solid var(--line); border-radius: 10px; padding: 8px; text-align: center; font-size: 12px; color: var(--muted); }
+  .streets b { display: block; font-size: 13px; }
+  .keys { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12.5px; color: var(--muted); }
+  .keys kbd { margin: 0 4px 0 0; font-size: 11px; padding: 3px 6px; background: rgba(255,255,255,.1); opacity: 1; color: var(--text); }
+  .ranks { list-style: none; padding: 0 !important; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+  .ranks li {
+    display: grid; grid-template-columns: 26px 1fr auto; align-items: center; gap: 10px; margin: 0;
+    padding: 8px 10px; border-radius: 10px; background: rgba(255,255,255,.03); border: 1px solid transparent;
+  }
+  .ranks li.mine { border-color: var(--gold); background: rgba(245,196,81,.08); }
+  .ranks .num { color: var(--muted); font-weight: 700; text-align: center; font-size: 13px; }
+  .ranks .what b { display: block; font-size: 14px; }
+  .ranks .what span { font-size: 12px; color: var(--muted); }
+  .ranks .you { display: inline-block; margin-left: 6px; font-size: 10.5px; font-weight: 700; color: #1a1205; background: var(--gold); border-radius: 999px; padding: 1px 7px; vertical-align: 2px; }
+  .minis { display: flex; gap: 3px; }
+  .mini {
+    width: 28px; height: 39px; border-radius: 4px; background: linear-gradient(160deg, #fff, #eceeec); color: #15181a;
+    font: 700 12px/1 Georgia, serif; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+    box-shadow: 0 2px 4px rgba(0,0,0,.4);
+  }
+  .mini.red { color: #c8202c; }
+  .mini.off { filter: brightness(.45); }
+  .mini i { font-style: normal; font-size: 13px; }
+
   @media (max-width: 820px) {
+    .ranks li { grid-template-columns: 20px 1fr; }
+    .ranks .minis { grid-column: 2; }
+    .streets { grid-template-columns: repeat(2, 1fr); }
     header { padding: 10px 12px; }
     .brand span { display: none; }
     .stage, .dock { padding-left: 16px; padding-right: 16px; }
@@ -349,6 +403,7 @@
   <div class="hud">
     <div class="pill">Hand<b id="handNum">0</b></div>
     <div class="pill">Blinds<b id="blinds">10/20</b></div>
+    <button class="iconbtn help" id="btnHelp" title="How to play (H)">?</button>
     <button class="iconbtn" id="btnSettings" title="Settings">⚙</button>
   </div>
   <div class="settings" id="settings">
@@ -409,6 +464,62 @@
     <h2 id="ovTitle">Game over</h2>
     <p id="ovText"></p>
     <button class="btn next" id="btnRestart">Play again</button>
+  </div>
+</div>
+
+<div class="overlay" id="helpOverlay">
+  <div class="dialog helpbox" role="dialog" aria-label="How to play">
+    <div class="helphead">
+      <div class="tabs">
+        <button class="tab active" data-tab="rules">Rules</button>
+        <button class="tab" data-tab="ranks">Hand rankings</button>
+      </div>
+      <button class="iconbtn" id="btnHelpClose" title="Close (Esc)">✕</button>
+    </div>
+    <div class="tabpane" id="tab-rules">
+      <h3>The goal</h3>
+      <p>Win chips by having the best five-card hand at showdown, or by betting so that everyone else folds. You win the game when you hold every chip at the table.</p>
+
+      <h3>The deal</h3>
+      <p>Everyone gets two private <b>hole cards</b>. The two players left of the dealer button <b>(D)</b> post the forced <b>small blind</b> and <b>big blind</b> bets, so there's always something to win. The button moves one seat left each hand.</p>
+
+      <h3>Four betting rounds</h3>
+      <div class="streets">
+        <div><b>Pre-flop</b>after hole cards</div>
+        <div><b>Flop</b>3 shared cards</div>
+        <div><b>Turn</b>4th shared card</div>
+        <div><b>River</b>5th shared card</div>
+      </div>
+      <p class="note">The shared cards in the middle are the <b>board</b>; everyone can use them.</p>
+
+      <h3>Your options on your turn</h3>
+      <ul>
+        <li><b>Check</b>: pass the action without betting (only when nobody has bet yet this round).</li>
+        <li><b>Bet / Raise</b>: put in chips; a raise must be at least as big as the previous bet or raise.</li>
+        <li><b>Call</b>: match the current bet to stay in.</li>
+        <li><b>Fold</b>: give up the hand and any chips you've already put in.</li>
+        <li><b>All-in</b>: bet everything you have. If you can't match a bet you can still call all-in, but you can only win as much from each opponent as you put in yourself. The extra goes into a <b>side pot</b>.</li>
+      </ul>
+      <p class="note">A round ends once everyone still in has put in the same amount (or is all-in).</p>
+
+      <h3>Showdown</h3>
+      <p>If two or more players are left after the river, the hands are revealed. Each player makes the best five-card hand from their two hole cards plus the five board cards (any combination, even all five from the board). The best hand wins the pot; identical hands split it.</p>
+
+      <h3>At this table</h3>
+      <ul>
+        <li>Everyone starts with <b>1,000</b> chips. Blinds start at 10/20 and rise every <b>8 hands</b>.</li>
+        <li>Each bot has a style. <b>Rocky</b> plays few hands but bets hard, <b>Luna</b> plays lots and bluffs, <b>Milo</b> calls almost anything, and <b>Ivy</b> rarely bets without a good hand.</li>
+        <li><b>Win chance</b> is your rough odds of winning against the players still in. <b>Need X% to call</b> is the minimum win chance that makes a call worth its price. Green means calling pays off in the long run.</li>
+      </ul>
+      <div class="keys">
+        <span><kbd>F</kbd>Fold</span><span><kbd>C</kbd>Check / Call</span><span><kbd>R</kbd>Bet / Raise</span>
+        <span><kbd>Space</kbd>Next hand</span><span><kbd>H</kbd>This help</span>
+      </div>
+    </div>
+    <div class="tabpane" id="tab-ranks" hidden>
+      <p class="note" style="margin-bottom:12px">Strongest at the top. When two players have the same type of hand, the higher cards win, and leftover cards (<b>kickers</b>) break remaining ties. Dimmed cards don't count toward the combo. Suits never rank above each other.</p>
+      <ol class="ranks" id="rankList"></ol>
+    </div>
   </div>
 </div>
 
@@ -852,6 +963,11 @@ for (const b of document.querySelectorAll('[data-frac]')) b.onclick = () => {
 document.addEventListener('keydown', e => {
   if (e.target.tagName === 'INPUT' && e.target.type === 'number' && e.key !== 'Enter') return;
   const k = e.key.toLowerCase();
+  if (helpOpen()) {
+    if (k === 'escape' || k === 'h') closeHelp();
+    return;
+  }
+  if (k === 'h' || k === '?') { openHelp(); return; }
   if (humanResolve) {
     if (k === 'f') $('btnFold').click();
     else if (k === 'c') $('btnCall').click();
@@ -968,6 +1084,59 @@ $('btnLog').onclick = () => {
   $('btnLog').textContent = open ? 'Collapse ▾' : 'Expand ▴';
   $('log').scrollTop = 1e9;
 };
+
+// ---------- Help ----------
+// Examples are written as "As Kd ..."; cards after `used` are dimmed kickers.
+const RANKINGS = [
+  ['Royal flush', 'A-K-Q-J-10, all the same suit', 'As Ks Qs Js Ts', 5],
+  ['Straight flush', 'Five in a row, all the same suit', '9h 8h 7h 6h 5h', 5],
+  ['Four of a kind', 'Four cards of the same rank', 'Qc Qd Qh Qs 7d', 4],
+  ['Full house', 'Three of a kind plus a pair', 'Jh Jd Js 4c 4h', 5],
+  ['Flush', 'Any five of the same suit', 'Ad Jd 8d 6d 2d', 5],
+  ['Straight', 'Five in a row, mixed suits (A can be low: A-2-3-4-5)', 'Tc 9d 8s 7h 6c', 5],
+  ['Three of a kind', 'Three cards of the same rank', '7s 7h 7d Kc 2s', 3],
+  ['Two pair', 'Two different pairs', 'Kh Kc 5s 5d 9h', 4],
+  ['One pair', 'Two cards of the same rank', 'Ad Ac Qs 8h 3c', 2],
+  ['High card', 'None of the above, so your highest card plays', 'Ah Jc 9s 6d 3h', 1],
+];
+const parseCard = t => ({ r: { A: 14, K: 13, Q: 12, J: 11, T: 10 }[t[0]] || +t[0], s: 'shdc'.indexOf(t[1]) });
+
+function renderRankings() {
+  const p = players && players[0];
+  // Index into RANKINGS of the player's current best hand, or -1 before the flop / after folding.
+  let mine = -1;
+  if (p && p.hand.length && !p.folded && board.length >= 3) {
+    const score = bestHand(p.hand.concat(board)).score;
+    const cat = Math.floor(score / 15 ** 5);
+    const royal = cat === 8 && Math.floor(score / 15 ** 4) % 15 === 14;
+    mine = royal ? 0 : 9 - cat;
+  }
+  $('rankList').innerHTML = RANKINGS.map(([name, desc, ex, used], i) => {
+    const isMine = i === mine;
+    const cards = ex.split(' ').map(parseCard).map((c, j) =>
+      `<div class="mini${c.s === 1 || c.s === 2 ? ' red' : ''}${j >= used ? ' off' : ''}">${rs(c.r)}<i>${SUITS[c.s]}</i></div>`).join('');
+    return `<li class="${isMine ? 'mine' : ''}"><div class="num">${i + 1}</div>` +
+      `<div class="what"><b>${name}${isMine ? '<span class="you">Your hand</span>' : ''}</b><span>${desc}</span></div>` +
+      `<div class="minis">${cards}</div></li>`;
+  }).join('');
+}
+
+const helpOpen = () => $('helpOverlay').classList.contains('show');
+function showTab(name) {
+  for (const t of document.querySelectorAll('.tab')) t.classList.toggle('active', t.dataset.tab === name);
+  $('tab-rules').hidden = name !== 'rules';
+  $('tab-ranks').hidden = name !== 'ranks';
+}
+function openHelp() {
+  renderRankings();
+  $('settings').classList.remove('open');
+  $('helpOverlay').classList.add('show');
+}
+function closeHelp() { $('helpOverlay').classList.remove('show'); }
+for (const t of document.querySelectorAll('.tab')) t.onclick = () => showTab(t.dataset.tab);
+$('btnHelp').onclick = e => { e.stopPropagation(); openHelp(); };
+$('btnHelpClose').onclick = closeHelp;
+$('helpOverlay').onclick = e => { if (e.target === $('helpOverlay')) closeHelp(); };
 
 // ---------- Chips ----------
 const DENOMS = [
