@@ -8,7 +8,7 @@ hub page linking to each.
 |---|---|---|
 | **Gemwright** | [`splendor/`](splendor) | Gem-trading engine builder vs 1–3 bots, inspired by *Splendor* |
 | **Imperium Mercatorum** | [`concordia/`](concordia) | Roman trading strategy vs 1–4 bots, inspired by *Concordia* |
-| **Hold'em Night** | [`poker/`](poker) | No-limit Texas Hold'em vs 4 bots with distinct playing styles |
+| **High Rollers** | [`high-rollers/`](high-rollers) | Casino lobby with four play-money games: Hold'em Night (no-limit Texas Hold'em vs 4 bots), Blackjack, Roulette and Liar's Dice |
 | **Tank Arena** | [`tank-arena/`](tank-arena) | 3D tank battles vs bots or friends online, with unlockable weapons and hulls |
 | **Globle** | [`globle/`](globle) | Find the mystery country on a 3D globe |
 | **Rubik's Cube Solver** | [`rubiks-cube-solver/`](rubiks-cube-solver) | Scan a real cube with the webcam and get a step-by-step solution |
@@ -44,6 +44,12 @@ For a Vite game, anything loaded at run time by URL (rather than imported) shoul
 
 Every game page gets a small tab on its left edge linking back to the hub; it is injected at
 build time, so games need no changes for it.
+
+A static game can also be a mini-hub with its own games in subfolders, like
+[`high-rollers/`](high-rollers): its front page links back to the hub, and each
+`<slug>/<sub-game>/index.html` gets a tab linking back to `/<slug>/` instead. High Rollers'
+games share their look through [`high-rollers/shared/`](high-rollers/shared). The old
+`/poker/` URL redirects to `/high-rollers/holdem/` (see [`vercel.json`](vercel.json)).
 
 ## Deploy (Vercel, free)
 

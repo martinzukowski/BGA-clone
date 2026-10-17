@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>High Rollers</title>
+<meta name="description" content="Casino and bluffing games against the house and against bots: Texas Hold'em, Blackjack, Roulette and Liar's Dice.">
+<link rel="stylesheet" href="shared/casino.css">
+<style>
+  .hero { max-width: 1000px; margin: 0 auto; padding: clamp(40px, 8vw, 80px) 24px 26px; text-align: center; }
+  .eyebrow { margin: 0 0 12px; font-size: 12px; font-weight: 700; letter-spacing: .24em; text-transform: uppercase; color: var(--gold); }
+  .hero h1 {
+    margin: 0; font: 500 clamp(42px, 8vw, 68px)/1.05 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
+    background: linear-gradient(180deg, #fff3cf, var(--gold) 55%, var(--gold-deep));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .lede { max-width: 560px; margin: 14px auto 0; color: var(--muted); font-size: 16px; line-height: 1.6; }
+  .suits { margin-top: 18px; letter-spacing: 14px; font-size: 18px; color: rgba(255,255,255,.22); }
+  .suits .r { color: rgba(214, 64, 76, .55); }
+
+  main { max-width: 1000px; margin: 0 auto; padding: 10px 24px 40px; }
+  .games { list-style: none; margin: 0; padding: 0; display: grid; gap: 18px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 440px), 1fr)); }
+  .game {
+    display: grid; grid-template-columns: 150px 1fr; gap: 0; height: 100%;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 18px; overflow: hidden;
+    color: inherit; text-decoration: none; box-shadow: 0 10px 30px rgba(0,0,0,.4);
+    transition: transform .15s, border-color .15s, box-shadow .15s;
+  }
+  .game:hover, .game:focus-visible { transform: translateY(-3px); border-color: rgba(245,196,81,.55); box-shadow: 0 16px 40px rgba(0,0,0,.5), 0 0 0 1px rgba(245,196,81,.25); outline: none; }
+  .art {
+    position: relative; display: grid; place-items: center; overflow: hidden;
+    background: radial-gradient(ellipse at 50% 40%, var(--felt-a), var(--felt-b) 60%, var(--felt-c));
+    box-shadow: inset -8px 0 18px rgba(0,0,0,.35);
+  }
+  .art svg { width: 108px; height: 108px; filter: drop-shadow(0 6px 10px rgba(0,0,0,.45)); }
+  .info { padding: 18px 20px; display: flex; flex-direction: column; gap: 6px; }
+  .info h2 { margin: 0; font-size: 20px; }
+  .info p { margin: 0; color: #c8d2cd; line-height: 1.5; flex: 1; }
+  .meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; }
+  .meta .tag { font-size: 11.5px; padding: 3px 9px; border-radius: 999px; background: rgba(255,255,255,.06); border: 1px solid var(--line); color: var(--muted); }
+  .meta .who { font-size: 12px; color: var(--muted); }
+  .meta .play { margin-left: auto; font-weight: 700; color: var(--gold); font-size: 13.5px; }
+  footer { text-align: center; color: var(--muted); font-size: 12.5px; padding: 0 24px 36px; }
+  footer a { color: var(--gold); }
+  @media (max-width: 520px) {
+    .game { grid-template-columns: 1fr; }
+    .art { height: 120px; box-shadow: inset 0 -8px 18px rgba(0,0,0,.35); }
+    .art svg { width: 88px; height: 88px; }
+  }
+</style>
+</head>
+<body>
+<header class="hero">
+  <p class="eyebrow">Game Center · Casino floor</p>
+  <h1>High Rollers</h1>
+  <p class="lede">Card tables, a roulette wheel and a dice game of pure bluff. Play for chips against the house or against bots. It's all play money, so bet big.</p>
+  <div class="suits" aria-hidden="true">♠<span class="r">♥</span>♣<span class="r">♦</span></div>
+</header>
+
+<main>
+  <ul class="games" role="list">
+    <li>
+      <a class="game" href="holdem/">
+        <div class="art" aria-hidden="true">
+          <svg viewBox="0 0 100 100">
+            <g transform="rotate(-12 50 60)"><rect x="18" y="18" width="40" height="58" rx="5" fill="#fff"/><text x="24" y="36" font-family="Georgia" font-size="15" font-weight="700" fill="#15181a">A</text><text x="38" y="60" font-family="Georgia" font-size="24" fill="#15181a">♠</text></g>
+            <g transform="rotate(10 50 60)"><rect x="42" y="20" width="40" height="58" rx="5" fill="#fff"/><text x="48" y="38" font-family="Georgia" font-size="15" font-weight="700" fill="#c8202c">K</text><text x="61" y="62" font-family="Georgia" font-size="24" fill="#c8202c">♥</text></g>
+          </svg>
+        </div>
+        <div class="info">
+          <h2>Hold'em Night</h2>
+          <p>No-limit Texas Hold'em against four bots, each with its own style, from rock-tight to reckless bluffer.</p>
+          <div class="meta"><span class="tag">Poker</span><span class="who">You vs 4 bots</span><span class="play">Play →</span></div>
+        </div>
+      </a>
+    </li>
+    <li>
+      <a class="game" href="blackjack/">
+        <div class="art" aria-hidden="true">
+          <svg viewBox="0 0 100 100">
+            <g transform="rotate(-10 50 60)"><rect x="16" y="20" width="40" height="58" rx="5" fill="#fff"/><text x="22" y="38" font-family="Georgia" font-size="15" font-weight="700" fill="#15181a">A</text><text x="35" y="62" font-family="Georgia" font-size="24" fill="#15181a">♣</text></g>
+            <g transform="rotate(8 50 60)"><rect x="44" y="18" width="40" height="58" rx="5" fill="#fff"/><text x="50" y="36" font-family="Georgia" font-size="15" font-weight="700" fill="#c8202c">J</text><text x="63" y="60" font-family="Georgia" font-size="24" fill="#c8202c">♦</text></g>
+            <circle cx="50" cy="88" r="11" fill="#15181a" stroke="#f5c451" stroke-width="2"/><text x="50" y="92" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="11" font-weight="800" fill="#f5c451">21</text>
+          </svg>
+        </div>
+        <div class="info">
+          <h2>Blackjack</h2>
+          <p>Beat the dealer to 21 without going bust. Split, double down, and turn on basic-strategy hints to learn the right play.</p>
+          <div class="meta"><span class="tag">Cards</span><span class="tag">Strategy</span><span class="who">You vs the house</span><span class="play">Play →</span></div>
+        </div>
+      </a>
+    </li>
+    <li>
+      <a class="game" href="roulette/">
+        <div class="art" aria-hidden="true">
+          <svg viewBox="0 0 100 100">
+            <circle cx="50" cy="50" r="46" fill="#5c3518" stroke="#a06a38" stroke-width="3"/>
+            <g id="wedges"></g>
+            <circle cx="50" cy="50" r="22" fill="#1b5e3f" stroke="#c9952a" stroke-width="2"/>
+            <circle cx="50" cy="50" r="6" fill="#f5c451"/>
+            <circle cx="50" cy="13" r="4" fill="#fff"/>
+          </svg>
+        </div>
+        <div class="info">
+          <h2>Roulette</h2>
+          <p>A European single-zero wheel. Spread chips across numbers, splits, corners and outside bets, then spin.</p>
+          <div class="meta"><span class="tag">Table game</span><span class="who">You vs the house</span><span class="play">Play →</span></div>
+        </div>
+      </a>
+    </li>
+    <li>
+      <a class="game" href="liars-dice/">
+        <div class="art" aria-hidden="true">
+          <svg viewBox="0 0 100 100">
+            <path d="M22 40 Q50 12 78 40 L74 74 Q50 86 26 74 Z" fill="#3a2a20" stroke="#1b120d" stroke-width="2"/>
+            <g transform="rotate(-14 34 72)"><rect x="20" y="58" width="28" height="28" rx="6" fill="#f4efe4"/><circle cx="27" cy="65" r="2.6" fill="#15181a"/><circle cx="34" cy="72" r="2.6" fill="#15181a"/><circle cx="41" cy="79" r="2.6" fill="#15181a"/></g>
+            <g transform="rotate(12 66 72)"><rect x="52" y="58" width="28" height="28" rx="6" fill="#f4efe4"/><circle cx="66" cy="72" r="3" fill="#c8202c"/></g>
+          </svg>
+        </div>
+        <div class="info">
+          <h2>Liar's Dice</h2>
+          <p>Everyone hides their dice and bids on what's under all the cups. Raise the bid or call "Liar!" against three bots who bluff in their own ways.</p>
+          <div class="meta"><span class="tag">Dice</span><span class="tag">Bluffing</span><span class="who">You vs 3 bots</span><span class="play">Play →</span></div>
+        </div>
+      </a>
+    </li>
+  </ul>
+</main>
+
+<footer>Play money only. Each game keeps its own chip count on this device. <a href="/">← All games</a></footer>
+
+<script>
+  // Roulette art: 37 alternating red/black wedges with one green zero.
+  const g = document.getElementById('wedges');
+  for (let i = 0; i < 37; i++) {
+    const a0 = (i / 37) * 2 * Math.PI - Math.PI / 2, a1 = ((i + 1) / 37) * 2 * Math.PI - Math.PI / 2;
+    const pt = (a, r) => `${50 + r * Math.cos(a)} ${50 + r * Math.sin(a)}`;
+    const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    p.setAttribute('d', `M${pt(a0, 22)} L${pt(a0, 42)} A42 42 0 0 1 ${pt(a1, 42)} L${pt(a1, 22)} A22 22 0 0 0 ${pt(a0, 22)}Z`);
+    p.setAttribute('fill', i === 0 ? '#1f9150' : i % 2 ? '#b3243a' : '#15181a');
+    g.appendChild(p);
+  }
+</script>
+</body>
+</html>

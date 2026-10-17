@@ -1,0 +1,540 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Roulette · High Rollers</title>
+<link rel="stylesheet" href="../shared/casino.css">
+<style>
+  .stage { max-width: 1180px; }
+  .felt { display: grid; grid-template-columns: 300px 1fr; gap: 26px; align-items: center; padding: 24px 24px 20px; }
+  .felt > * { min-width: 0; }
+  .wheelcol { display: flex; flex-direction: column; align-items: center; gap: 12px; position: relative; z-index: 1; }
+
+  /* ---------- Wheel ---------- */
+  .wheel { position: relative; width: 280px; height: 280px; border-radius: 50%; }
+  .wheel .bowl {
+    position: absolute; inset: 0; border-radius: 50%;
+    background: radial-gradient(circle, #3a2414 60%, #6b4120 74%, #2a180c 76%, #8a5629 88%, #4a2a12 100%);
+    box-shadow: 0 14px 30px rgba(0,0,0,.6), inset 0 0 0 3px rgba(0,0,0,.4);
+  }
+  .wheel .rotor, .wheel .balltrack { position: absolute; inset: 0; transition: transform 5.2s cubic-bezier(.12,.62,.18,1); }
+  .wheel .rotor svg { width: 100%; height: 100%; display: block; }
+  .wheel .ball {
+    position: absolute; left: 50%; top: 13px; width: 13px; height: 13px; margin-left: -6.5px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #fff, #d8d8d8 55%, #8a8a8a);
+    box-shadow: 0 2px 4px rgba(0,0,0,.6); transition: top 1s cubic-bezier(.5,0,.6,1);
+  }
+  .wheel .ball.drop { top: 48px; }
+  .wheel.idle .ball { opacity: 0; }
+  .result-badge {
+    min-width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center;
+    font: 800 26px/1 Georgia, serif; color: #fff; border: 3px solid rgba(255,255,255,.85);
+    box-shadow: 0 6px 18px rgba(0,0,0,.5); background: rgba(0,0,0,.35); transition: background .3s;
+  }
+  .result-badge.red { background: #b3243a; } .result-badge.black { background: #15181a; } .result-badge.green { background: #1f9150; }
+  .result-badge.pop { animation: pop .4s cubic-bezier(.3,1.6,.5,1) both; }
+  @keyframes pop { from { transform: scale(.3); opacity: 0; } }
+  .history { display: flex; gap: 4px; flex-wrap: wrap; justify-content: center; max-width: 280px; min-height: 26px; }
+  .history span {
+    width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 700;
+    border: 1px solid rgba(255,255,255,.25);
+  }
+  .history span:first-child { box-shadow: 0 0 0 2px var(--gold); }
+
+  /* ---------- Betting layout ---------- */
+  .layoutwrap { overflow-x: auto; position: relative; z-index: 1; padding: 6px 4px 10px; }
+  .layout { position: relative; width: 100%; min-width: 600px; aspect-ratio: 14 / 5.6; user-select: none; }
+  .cell {
+    position: absolute; display: grid; place-items: center; cursor: pointer;
+    border: 1.5px solid rgba(255,255,255,.75); color: #fff; font: 700 16px/1 Georgia, serif;
+    transition: background .15s, box-shadow .15s;
+  }
+  .cell.num span { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; }
+  .cell.red span { background: #b3243a; } .cell.black span { background: #15181a; }
+  .cell.zero { background: rgba(31,145,80,.55); border-radius: 40px 0 0 40px; }
+  .cell.out { font: 700 13px/1.1 "Segoe UI", system-ui, sans-serif; letter-spacing: .5px; text-align: center; }
+  .cell.out .dia { width: 26px; height: 16px; transform: rotate(0deg); clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
+  .cell.hl { background: rgba(245,196,81,.32); }
+  .cell.win { background: rgba(245,196,81,.55); box-shadow: inset 0 0 0 3px var(--gold), 0 0 18px rgba(245,196,81,.7); z-index: 1; }
+  .spot { position: absolute; width: 22px; height: 22px; transform: translate(-50%, -50%); cursor: pointer; z-index: 3; border-radius: 50%; }
+  .spot:hover { background: rgba(245,196,81,.35); }
+  .pchip {
+    position: absolute; transform: translate(-50%, -50%); z-index: 4; pointer-events: none;
+    width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center;
+    background: radial-gradient(circle, var(--c) 0 48%, rgba(255,255,255,.85) 49% 54%, var(--c) 55% 100%);
+    border: 3px dashed var(--e); box-shadow: 0 2px 0 var(--d), 0 3px 6px rgba(0,0,0,.6);
+    color: var(--t); font: 800 10px/1 "Segoe UI", system-ui, sans-serif;
+    animation: place .18s ease-out both;
+  }
+  @keyframes place { from { transform: translate(-50%, -80%) scale(1.3); opacity: 0; } }
+  .pchip.lost { opacity: 0; transition: opacity .6s .3s; }
+  .pchip.won { box-shadow: 0 0 0 3px var(--gold), 0 0 16px rgba(245,196,81,.9); }
+
+  .betbar { display: flex; flex-direction: column; gap: 12px; }
+  .chiprow { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; align-items: center; }
+  .betinfo { display: flex; justify-content: center; gap: 16px; font-size: 13px; color: var(--muted); flex-wrap: wrap; }
+  .betinfo b { color: var(--gold); }
+  .hoverinfo { text-align: center; font-size: 12.5px; color: rgba(255,255,255,.75); min-height: 18px; position: relative; z-index: 1; }
+
+  @media (max-width: 1080px) {
+    .felt { grid-template-columns: 1fr; padding: 16px 10px; }
+    .wheelcol { flex-direction: row; flex-wrap: wrap; justify-content: center; gap: 18px; }
+  }
+  @media (max-width: 900px) {
+    .wheel { width: 230px; height: 230px; }
+    .wheel .ball { top: 10px; } .wheel .ball.drop { top: 39px; }
+  }
+</style>
+</head>
+<body>
+<header class="bar">
+  <div class="brand"><div class="logo">◎</div><span>Roulette</span></div>
+  <div class="hud">
+    <div class="pill bank">Bank<b id="bank">1,000</b></div>
+    <div class="pill">On table<b id="onTable">0</b></div>
+    <button class="iconbtn help" id="btnHelp" title="How to play (H)">?</button>
+    <button class="iconbtn" id="btnSettings" title="Settings">⚙</button>
+  </div>
+  <div class="settings" id="settings">
+    <label><input type="checkbox" id="optFast"> Quick spins</label>
+    <hr>
+    <button class="link" id="btnReset">Reset bank to 1,000</button>
+  </div>
+</header>
+
+<div class="stage">
+  <div class="feltbox">
+    <div class="felt">
+      <div class="wheelcol">
+        <div class="wheel idle" id="wheel">
+          <div class="bowl"></div>
+          <div class="rotor" id="rotor"></div>
+          <div class="balltrack" id="balltrack"><div class="ball" id="ball"></div></div>
+        </div>
+        <div class="result-badge" id="resultBadge">–</div>
+        <div class="history" id="history"></div>
+      </div>
+      <div>
+        <div class="status" id="status" style="margin-bottom:8px">Place your bets.</div>
+        <div class="layoutwrap"><div class="layout" id="layout"></div></div>
+        <div class="hoverinfo" id="hoverInfo"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="dock">
+  <div class="logcard card-panel">
+    <div class="panel-head">Spin log</div>
+    <div class="log" id="log"></div>
+  </div>
+  <div class="actions card-panel betbar">
+    <div class="chiprow" id="chipRow"></div>
+    <div class="betinfo"><span>Chip <b id="chipVal">5</b></span><span>Total bet <b id="totalBet">0</b></span><span id="lastWin"></span></div>
+    <div class="row main">
+      <button class="btn grey" id="btnUndo">Undo<kbd>Z</kbd></button>
+      <button class="btn grey" id="btnClear">Clear<kbd>X</kbd></button>
+      <button class="btn blue" id="btnRebet">Rebet<kbd>R</kbd></button>
+      <button class="btn blue" id="btnDouble">Double<kbd>D</kbd></button>
+      <button class="btn green" id="btnSpin">Spin<kbd>Space</kbd></button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="brokeOverlay">
+  <div class="dialog">
+    <h2>Out of chips</h2>
+    <p>The wheel has spoken. Here's a fresh 1,000 to keep playing.</p>
+    <button class="btn green" id="btnRefill">Take 1,000 chips</button>
+  </div>
+</div>
+
+<div class="overlay" id="helpOverlay">
+  <div class="dialog helpbox" role="dialog" aria-label="How to play">
+    <div class="helphead">
+      <div class="tabs">
+        <button class="tab active" data-tab="rules">Rules</button>
+        <button class="tab" data-tab="bets">Bets &amp; payouts</button>
+      </div>
+      <button class="iconbtn" id="btnHelpClose" title="Close (Esc)">✕</button>
+    </div>
+    <div class="tabpane" id="tab-rules">
+      <h3>The goal</h3>
+      <p>Guess where the ball will land. The wheel has the numbers <b>1–36</b>, half red and half black, plus a green <b>0</b>.</p>
+      <h3>Placing bets</h3>
+      <ol>
+        <li>Pick a chip value below the table.</li>
+        <li>Click the layout to put chips down. Click a number for a single number, the line between two numbers for a <b>split</b>, the corner where four meet for a <b>corner</b>, and so on. Hovering shows which numbers a spot covers.</li>
+        <li><b>Right-click</b> (or Shift-click) a bet to take one chip back off it.</li>
+        <li>Hit <b>Spin</b>. Winning bets are paid, losing chips are collected, and the table clears. <b>Rebet</b> puts the same bets down again.</li>
+      </ol>
+      <h3>The house edge</h3>
+      <p class="note">Every bet pays as if there were only 36 numbers, but there are 37. That single green zero gives the house a 2.7% edge on every bet, whichever you pick. No system beats it, so pick bets for fun.</p>
+      <div class="keys">
+        <span><kbd>1</kbd>–<kbd>6</kbd>Pick chip</span><span><kbd>Space</kbd>Spin</span><span><kbd>Z</kbd>Undo</span>
+        <span><kbd>X</kbd>Clear</span><span><kbd>R</kbd>Rebet</span><span><kbd>D</kbd>Double</span><span><kbd>H</kbd>This help</span>
+      </div>
+    </div>
+    <div class="tabpane" id="tab-bets" hidden>
+      <table>
+        <tr><th>Bet</th><th>Covers</th><th>Pays</th></tr>
+        <tr><td><b>Straight</b></td><td>1 number</td><td>35 to 1</td></tr>
+        <tr><td><b>Split</b></td><td>2 neighbouring numbers</td><td>17 to 1</td></tr>
+        <tr><td><b>Street</b></td><td>A row of 3 (click the bottom edge)</td><td>11 to 1</td></tr>
+        <tr><td><b>Trio</b></td><td>0-1-2 or 0-2-3</td><td>11 to 1</td></tr>
+        <tr><td><b>Corner</b></td><td>4 numbers in a square</td><td>8 to 1</td></tr>
+        <tr><td><b>First four</b></td><td>0-1-2-3</td><td>8 to 1</td></tr>
+        <tr><td><b>Six line</b></td><td>Two rows of 3 (bottom edge, between rows)</td><td>5 to 1</td></tr>
+        <tr><td><b>Column</b></td><td>12 numbers ("2 to 1" boxes)</td><td>2 to 1</td></tr>
+        <tr><td><b>Dozen</b></td><td>1–12, 13–24 or 25–36</td><td>2 to 1</td></tr>
+        <tr><td><b>Red / Black, Odd / Even, 1–18 / 19–36</b></td><td>18 numbers</td><td>1 to 1</td></tr>
+      </table>
+      <p class="note">Zero isn't red, black, odd, even, low or high, so all the even-money bets lose when it comes up.</p>
+    </div>
+  </div>
+</div>
+
+<script src="../shared/casino.js"></script>
+<script>
+const START_BANK = 1000;
+const BANK_KEY = 'highRollers.roulette.bank';
+const CHIP_VALUES = [1, 5, 25, 100, 500, 1000];
+const ORDER = [0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5, 24, 16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26];
+const REDS = new Set([1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]);
+const colorOf = n => n === 0 ? 'green' : REDS.has(n) ? 'red' : 'black';
+
+let bank = loadNumber(BANK_KEY, START_BANK);
+let chip = 5;
+let bets = new Map();     // key -> { key, name, nums, pays, x, y, amount }
+let undo = [];            // keys in the order chips were placed (+amount)
+let lastBets = [];        // [{key, amount}] from the previous spin
+let spinning = false;
+let pendingReturn = 0;    // winnings of the spin in progress, saved if the page closes mid-spin
+let wheelAngle = 0, ballAngle = 0;
+const history = [];
+const SPOTS = new Map();  // key -> bet definition
+
+function setBank(v) { bank = v; saveNumber(BANK_KEY, bank); }
+const tableTotal = () => [...bets.values()].reduce((s, b) => s + b.amount, 0);
+
+// ---------- Wheel ----------
+function buildWheel() {
+  const θ = 360 / 37, R = 140, rIn = 92, rNum = 124;
+  const pt = (deg, r) => { const a = (deg - 90) * Math.PI / 180; return [140 + r * Math.cos(a), 140 + r * Math.sin(a)]; };
+  let s = `<svg viewBox="0 0 280 280">`;
+  ORDER.forEach((n, i) => {
+    const a0 = i * θ - θ / 2, a1 = i * θ + θ / 2;
+    const [x0, y0] = pt(a0, R - 8), [x1, y1] = pt(a1, R - 8), [x2, y2] = pt(a1, rIn), [x3, y3] = pt(a0, rIn);
+    const fill = n === 0 ? '#1f9150' : REDS.has(n) ? '#b3243a' : '#15181a';
+    s += `<path d="M${x0} ${y0} A${R - 8} ${R - 8} 0 0 1 ${x1} ${y1} L${x2} ${y2} A${rIn} ${rIn} 0 0 0 ${x3} ${y3}Z" fill="${fill}" stroke="#c9952a" stroke-width=".8"/>`;
+    const [tx, ty] = pt(i * θ, rNum);
+    s += `<text x="${tx}" y="${ty}" fill="#fff" font-family="Georgia" font-size="11" font-weight="700" text-anchor="middle" dominant-baseline="central" transform="rotate(${i * θ} ${tx} ${ty})">${n}</text>`;
+  });
+  // pocket ring + centre cone
+  s += `<circle cx="140" cy="140" r="${rIn}" fill="none" stroke="#c9952a" stroke-width="2"/>`;
+  ORDER.forEach((_, i) => { const [a, b] = pt(i * θ - θ / 2, rIn), [c, d] = pt(i * θ - θ / 2, rIn - 16); s += `<line x1="${a}" y1="${b}" x2="${c}" y2="${d}" stroke="#c9952a" stroke-width="1.2"/>`; });
+  s += `<circle cx="140" cy="140" r="${rIn - 16}" fill="#5c3518" stroke="#c9952a" stroke-width="1.5"/>`;
+  s += `<circle cx="140" cy="140" r="54" fill="url(#cone)"/>`;
+  s += `<defs><radialGradient id="cone" cx="40%" cy="35%"><stop offset="0" stop-color="#e6c27a"/><stop offset=".55" stop-color="#a06a38"/><stop offset="1" stop-color="#4a2a12"/></radialGradient></defs>`;
+  for (let k = 0; k < 4; k++) { const [a, b] = pt(k * 90 + 45, 46); s += `<line x1="140" y1="140" x2="${a}" y2="${b}" stroke="#f5d78e" stroke-width="5" stroke-linecap="round"/>`; }
+  s += `<circle cx="140" cy="140" r="11" fill="#f5d78e" stroke="#7a5320" stroke-width="2"/></svg>`;
+  $('rotor').innerHTML = s;
+}
+
+async function spinTo(n) {
+  const θ = 360 / 37;
+  const dur = $('optFast').checked ? 2.6 : 5.2;
+  $('rotor').style.transitionDuration = $('balltrack').style.transitionDuration = dur + 's';
+  $('wheel').classList.remove('idle');
+  $('ball').classList.remove('drop');
+  wheelAngle += 360 * 3 + Math.random() * 360;
+  const target = ((ORDER.indexOf(n) * θ + wheelAngle) % 360 + 360) % 360;
+  const base = ballAngle - 360 * 5;
+  ballAngle = base - (((base - target) % 360) + 360) % 360;
+  $('rotor').style.transform = `rotate(${wheelAngle}deg)`;
+  $('balltrack').style.transform = `rotate(${ballAngle}deg)`;
+  await sleep(dur * 1000 * 0.62);
+  $('ball').classList.add('drop');
+  await sleep(dur * 1000 * 0.38 + 120);
+}
+
+// ---------- Layout ----------
+// The layout is 14 columns (zero, 12 number columns, column bets) by 5 rows
+// (3 number rows, dozens, even-money). Positions are percentages.
+const CW = 100 / 14, RH = 100 / 5;
+const numAt = (c, r) => 3 * c + (3 - r);   // column 0..11, row 0 (top: 3,6,...) .. 2 (bottom: 1,4,...)
+
+function defineBet(key, name, nums, pays, x, y) {
+  const def = { key, name, nums, pays, x, y };
+  SPOTS.set(key, def);
+  return def;
+}
+
+function buildLayout() {
+  const L = $('layout');
+  const cell = (cls, x, y, w, h, html, def) => {
+    const d = document.createElement('div');
+    d.className = 'cell ' + cls;
+    Object.assign(d.style, { left: x + '%', top: y + '%', width: w + '%', height: h + '%' });
+    d.innerHTML = html;
+    bindTarget(d, def);
+    L.append(d);
+    return d;
+  };
+  const spot = (def) => {
+    const d = document.createElement('div');
+    d.className = 'spot';
+    d.style.left = def.x + '%'; d.style.top = def.y + '%';
+    bindTarget(d, def);
+    L.append(d);
+  };
+
+  // zero
+  cell('zero', 0, 0, CW, RH * 3, '<span style="font-size:20px">0</span>', defineBet('n0', 'Straight 0', [0], 35, CW / 2, RH * 1.5)).dataset.num = 0;
+  // numbers
+  for (let c = 0; c < 12; c++) for (let r = 0; r < 3; r++) {
+    const n = numAt(c, r);
+    const x = CW * (c + 1), y = RH * r;
+    cell('num ' + colorOf(n), x, y, CW, RH, `<span>${n}</span>`, defineBet('n' + n, `Straight ${n}`, [n], 35, x + CW / 2, y + RH / 2)).dataset.num = n;
+  }
+  // column bets
+  for (let r = 0; r < 3; r++) {
+    const nums = []; for (let c = 0; c < 12; c++) nums.push(numAt(c, r));
+    cell('out', CW * 13, RH * r, CW, RH, '2 to 1', defineBet('col' + r, `Column ${3 - r}`, nums, 2, CW * 13.5, RH * (r + .5)));
+  }
+  // dozens
+  ['1st 12', '2nd 12', '3rd 12'].forEach((label, i) => {
+    const nums = Array.from({ length: 12 }, (_, k) => i * 12 + k + 1);
+    cell('out', CW * (1 + i * 4), RH * 3, CW * 4, RH, label, defineBet('doz' + i, `Dozen ${i * 12 + 1}–${i * 12 + 12}`, nums, 2, CW * (3 + i * 4), RH * 3.5));
+  });
+  // even-money
+  const all = Array.from({ length: 36 }, (_, k) => k + 1);
+  const evens = [
+    ['low', '1 – 18', all.filter(n => n <= 18)],
+    ['even', 'Even', all.filter(n => n % 2 === 0)],
+    ['red', '<div class="dia" style="background:#b3243a"></div>', all.filter(n => REDS.has(n))],
+    ['black', '<div class="dia" style="background:#15181a;outline:1px solid #fff"></div>', all.filter(n => !REDS.has(n))],
+    ['odd', 'Odd', all.filter(n => n % 2 === 1)],
+    ['high', '19 – 36', all.filter(n => n >= 19)],
+  ];
+  const evenNames = { low: '1–18', even: 'Even', red: 'Red', black: 'Black', odd: 'Odd', high: '19–36' };
+  evens.forEach(([k, html, nums], i) => cell('out', CW * (1 + i * 2), RH * 4, CW * 2, RH, html, defineBet(k, evenNames[k], nums, 1, CW * (2 + i * 2), RH * 4.5)));
+
+  // inside-bet spots on lines and corners
+  for (let c = 0; c < 12; c++) {
+    const xL = CW * (c + 1), xR = CW * (c + 2);
+    for (let r = 0; r < 3; r++) {
+      const n = numAt(c, r);
+      if (c < 11) spot(defineBet(`sv${n}`, `Split ${n}/${n + 3}`, [n, n + 3], 17, xR, RH * (r + .5)));
+      if (r < 2) spot(defineBet(`sh${n}`, `Split ${n - 1}/${n}`, [n - 1, n], 17, xL + CW / 2, RH * (r + 1)));
+      if (r < 2 && c < 11) spot(defineBet(`c${n}`, `Corner ${n - 1}/${n}/${n + 2}/${n + 3}`, [n - 1, n, n + 2, n + 3], 8, xR, RH * (r + 1)));
+    }
+    const base = 3 * c;
+    spot(defineBet(`st${c}`, `Street ${base + 1}–${base + 3}`, [base + 1, base + 2, base + 3], 11, xL + CW / 2, RH * 3));
+    if (c < 11) spot(defineBet(`sl${c}`, `Six line ${base + 1}–${base + 6}`, [1, 2, 3, 4, 5, 6].map(k => base + k), 5, xR, RH * 3));
+  }
+  // bets touching zero
+  spot(defineBet('z3', 'Split 0/3', [0, 3], 17, CW, RH * .5));
+  spot(defineBet('z2', 'Split 0/2', [0, 2], 17, CW, RH * 1.5));
+  spot(defineBet('z1', 'Split 0/1', [0, 1], 17, CW, RH * 2.5));
+  spot(defineBet('t023', 'Trio 0/2/3', [0, 2, 3], 11, CW, RH));
+  spot(defineBet('t012', 'Trio 0/1/2', [0, 1, 2], 11, CW, RH * 2));
+  spot(defineBet('ff', 'First four 0/1/2/3', [0, 1, 2, 3], 8, CW, RH * 3));
+}
+
+function bindTarget(el, def) {
+  el.addEventListener('click', e => { if (e.shiftKey) removeChip(def.key); else placeChip(def.key); });
+  el.addEventListener('contextmenu', e => { e.preventDefault(); removeChip(def.key); });
+  el.addEventListener('mouseenter', () => highlight(def));
+  el.addEventListener('mouseleave', () => highlight(null));
+}
+function highlight(def) {
+  const set = new Set(def ? def.nums : []);
+  for (const c of $('layout').querySelectorAll('.cell[data-num]')) c.classList.toggle('hl', set.has(+c.dataset.num));
+  $('hoverInfo').innerHTML = def
+    ? `<b>${def.name}</b> · pays ${def.pays} to 1` + (bets.has(def.key) ? ` · your bet ${fmt(bets.get(def.key).amount)}` : '')
+    : '';
+}
+
+// ---------- Betting ----------
+function placeChip(key, amount = chip, record = true) {
+  if (spinning) return false;
+  if (amount > bank) { setStatus(bank ? `Not enough chips. You have ${fmt(bank)} left.` : 'No chips left.'); return false; }
+  clearResult();
+  const def = SPOTS.get(key);
+  const b = bets.get(key) || { ...def, amount: 0 };
+  b.amount += amount;
+  bets.set(key, b);
+  setBank(bank - amount);
+  if (record) undo.push([key, amount]);
+  renderChips();
+  if ($('hoverInfo').textContent) highlight(def);
+  return true;
+}
+function removeChip(key) {
+  if (spinning || !bets.has(key)) return;
+  const b = bets.get(key);
+  const amt = Math.min(chip, b.amount);
+  b.amount -= amt;
+  setBank(bank + amt);
+  if (!b.amount) bets.delete(key);
+  undo.push([key, -amt]);
+  renderChips();
+  highlight(SPOTS.get(key));
+}
+function undoLast() {
+  if (spinning || !undo.length) return;
+  const [key, amt] = undo.pop();
+  if (amt > 0) {
+    const b = bets.get(key);
+    b.amount -= amt; setBank(bank + amt);
+    if (!b.amount) bets.delete(key);
+  } else placeChip(key, -amt, false);
+  renderChips();
+}
+function clearBets() {
+  if (spinning) return;
+  setBank(bank + tableTotal());
+  bets.clear(); undo = [];
+  renderChips();
+}
+function rebet() {
+  if (spinning || !lastBets.length) return;
+  clearBets();
+  const need = lastBets.reduce((s, b) => s + b.amount, 0);
+  if (need > bank) { setStatus(`Your last bets total ${fmt(need)}, but you only have ${fmt(bank)}.`); return; }
+  for (const { key, amount } of lastBets) placeChip(key, amount);
+  setStatus('Same bets as last spin.');
+}
+function doubleBets() {
+  if (spinning || !bets.size) return;
+  const t = tableTotal();
+  if (t > bank) { setStatus(`Doubling needs another ${fmt(t)}; you have ${fmt(bank)}.`); return; }
+  for (const b of [...bets.values()]) placeChip(b.key, b.amount);
+}
+
+// ---------- Spin ----------
+async function spin() {
+  if (spinning) return;
+  if (!bets.size) { if (lastBets.length) rebet(); if (!bets.size) { setStatus('Place a bet first.'); return; } }
+  spinning = true;
+  clearResult();
+  lastBets = [...bets.values()].map(b => ({ key: b.key, amount: b.amount }));
+  const staked = tableTotal();
+  setStatus('No more bets!');
+  renderControls();
+  const n = Math.floor(Math.random() * 37);
+  let returned = 0;
+  const winners = [];
+  for (const b of bets.values()) {
+    if (b.nums.includes(n)) { returned += b.amount * (b.pays + 1); winners.push(b); }
+  }
+  pendingReturn = returned;
+  await spinTo(n);
+  pendingReturn = 0;
+
+  history.unshift(n);
+  if (history.length > 14) history.pop();
+  const badge = $('resultBadge');
+  badge.className = 'result-badge pop ' + colorOf(n);
+  badge.textContent = n;
+  for (const c of $('layout').querySelectorAll('.cell[data-num]')) c.classList.toggle('win', +c.dataset.num === n);
+
+  setBank(bank + returned);
+  const net = returned - staked;
+  logLine(`Spin: <b style="color:${n === 0 ? '#7ee2a8' : REDS.has(n) ? '#ff8a8a' : '#fff'}">${n} ${colorOf(n)}</b> · bet ${fmt(staked)}`, 'head');
+  for (const w of winners) logLine(`${w.name} wins ${fmt(w.amount * w.pays)}`, 'win');
+  logLine(net > 0 ? `Net +${fmt(net)}` : net < 0 ? `Net −${fmt(-net)}` : 'Broke even', net > 0 ? 'win' : net < 0 ? 'lose' : '');
+  setStatus(net > 0 ? `${n} ${colorOf(n)} · you win ${fmt(net)}!` : returned ? `${n} ${colorOf(n)} · you get ${fmt(returned)} back` : `${n} ${colorOf(n)} · no luck this time`);
+  $('lastWin').innerHTML = `Last spin <b style="color:${net >= 0 ? 'var(--good)' : 'var(--bad)'}">${net >= 0 ? '+' : '−'}${fmt(Math.abs(net))}</b>`;
+
+  // Show winners glowing and losers fading, then clear the table.
+  for (const el of $('layout').querySelectorAll('.pchip')) el.classList.add(winners.some(w => w.key === el.dataset.key) ? 'won' : 'lost');
+  renderHistory();
+  await sleep(1400);
+  bets.clear(); undo = [];
+  spinning = false;
+  renderChips();
+  if (bank <= 0) setTimeout(() => $('brokeOverlay').classList.add('show'), 400);
+}
+function clearResult() {
+  for (const c of $('layout').querySelectorAll('.cell.win')) c.classList.remove('win');
+}
+
+// ---------- Rendering ----------
+function setStatus(t) { $('status').textContent = t; }
+function renderChips() {
+  const L = $('layout');
+  L.querySelectorAll('.pchip').forEach(e => e.remove());
+  for (const b of bets.values()) {
+    const top = [...CHIP_VALUES].reverse().find(v => v <= b.amount) || 1;
+    const el = document.createElement('div');
+    el.className = 'pchip';
+    el.dataset.key = b.key;
+    const [, c, d, e, t] = denomOf(top);
+    el.style.setProperty('--c', c); el.style.setProperty('--d', d); el.style.setProperty('--e', e); el.style.setProperty('--t', t);
+    el.style.left = b.x + '%'; el.style.top = b.y + '%';
+    el.textContent = b.amount >= 1000 ? (Math.round(b.amount / 100) / 10) + 'K' : b.amount;
+    L.append(el);
+  }
+  renderControls();
+}
+function renderHistory() {
+  $('history').innerHTML = history.map(n =>
+    `<span style="background:${n === 0 ? '#1f9150' : REDS.has(n) ? '#b3243a' : '#15181a'}">${n}</span>`).join('');
+}
+function renderControls() {
+  $('bank').textContent = fmt(bank);
+  $('onTable').textContent = fmt(tableTotal());
+  $('totalBet').textContent = fmt(tableTotal());
+  $('chipVal').textContent = fmt(chip);
+  for (const b of $('chipRow').children) b.classList.toggle('sel', +b.dataset.v === chip);
+  $('btnSpin').disabled = spinning || (!bets.size && !lastBets.length);
+  $('btnUndo').disabled = spinning || !undo.length;
+  $('btnClear').disabled = spinning || !bets.size;
+  $('btnRebet').disabled = spinning || !lastBets.length;
+  $('btnDouble').disabled = spinning || !bets.size;
+}
+
+// ---------- Wiring ----------
+CHIP_VALUES.forEach((v, i) => {
+  const b = document.createElement('button');
+  b.className = 'bigchip';
+  b.dataset.v = v;
+  b.title = `${fmt(v)} chip (${i + 1})`;
+  paintChip(b, v);
+  b.onclick = () => { chip = v; renderControls(); };
+  $('chipRow').append(b);
+});
+$('btnUndo').onclick = undoLast;
+$('btnClear').onclick = clearBets;
+$('btnRebet').onclick = rebet;
+$('btnDouble').onclick = doubleBets;
+$('btnSpin').onclick = spin;
+$('btnRefill').onclick = () => { setBank(START_BANK); $('brokeOverlay').classList.remove('show'); renderControls(); };
+$('btnReset').onclick = () => {
+  if (spinning) return;
+  if (confirm('Reset your bank to 1,000 chips?')) { bets.clear(); undo = []; setBank(START_BANK); renderChips(); }
+};
+// Chips leave the bank as they're placed; if the page closes, put unspun bets
+// (or the winnings of a spin still animating) back so nothing is lost.
+window.addEventListener('pagehide', () => saveNumber(BANK_KEY, bank + (spinning ? pendingReturn : tableTotal())));
+setupChrome();
+onKeys((k, e) => {
+  if (k === ' ' || k === 'enter') { e.preventDefault(); spin(); }
+  else if (k === 'z') undoLast();
+  else if (k === 'x') clearBets();
+  else if (k === 'r') rebet();
+  else if (k === 'd') doubleBets();
+  else if (/^[1-6]$/.test(k)) { chip = CHIP_VALUES[+k - 1]; renderControls(); }
+});
+
+buildWheel();
+buildLayout();
+renderChips();
+renderHistory();
+if (bank <= 0) $('brokeOverlay').classList.add('show');
+</script>
+</body>
+</html>

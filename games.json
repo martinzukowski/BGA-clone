@@ -22,12 +22,12 @@
       "accent": "#b5462f"
     },
     {
-      "slug": "poker",
-      "title": "Hold'em Night",
-      "tagline": "No-limit Texas Hold'em against four bots, each with its own style, from rock-tight to reckless bluffer.",
-      "inspiredBy": "Texas Hold'em",
-      "players": "You vs 4 bots",
-      "tags": ["Card game", "Poker", "AI opponents"],
+      "slug": "high-rollers",
+      "title": "High Rollers",
+      "tagline": "A casino floor of play-money games: Texas Hold'em, Blackjack, Roulette and Liar's Dice, against the house or against bots.",
+      "inspiredBy": null,
+      "players": "4 games · you vs the house or bots",
+      "tags": ["Casino", "Cards", "Dice", "AI opponents"],
       "kind": "static",
       "accent": "#b8323f"
     },

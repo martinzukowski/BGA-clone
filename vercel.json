@@ -5,6 +5,10 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "trailingSlash": true,
+  "redirects": [
+    { "source": "/poker", "destination": "/high-rollers/holdem/", "permanent": true },
+    { "source": "/poker/(.*)", "destination": "/high-rollers/holdem/$1", "permanent": true }
+  ],
   "headers": [
     {
       "source": "/(.*)/assets/(.*)",

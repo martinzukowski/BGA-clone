@@ -5,7 +5,9 @@
 //
 // Games are listed in games.json. 'vite' games are built with Vite using
 // --base=/<slug>/ so their assets resolve under that path; 'static' games are
-// copied as-is. Each game page gets a small "Game Center" link back to the hub.
+// copied as-is. Each game page gets a small "Game Center" link back to the hub;
+// a static game can hold sub-games in its own folders (High Rollers does), and
+// their pages link back to that game's front page instead.
 // No dependencies: runs on plain Node 20+, locally or on Vercel.
 
 import { execSync } from 'node:child_process'
@@ -55,7 +57,11 @@ const escape = (text) =>
  * focused, then slides out its label. Scoped by id so it cannot collide with
  * a game's own CSS.
  */
-const BACK_LINK = `
+const HUB_ICON = `<rect x="1" y="1" width="6" height="6" rx="1.5"/><rect x="9" y="1" width="6" height="6" rx="1.5"/>
+    <rect x="1" y="9" width="6" height="6" rx="1.5"/><rect x="9" y="9" width="6" height="6" rx="1.5"/>`
+const BACK_ICON = `<path d="M10.5 2.5 5 8l5.5 5.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>`
+
+const backLink = (href, label, icon) => `
 <style>
   #game-center-back{position:fixed;left:0;top:50%;transform:translateY(-50%);z-index:2147483000;
     display:flex;align-items:center;gap:7px;padding:11px 10px 11px 8px;
@@ -66,23 +72,31 @@ const BACK_LINK = `
   #game-center-back svg{flex:none}
   #game-center-back span{max-width:0;overflow:hidden;white-space:nowrap;transition:max-width .2s ease}
   #game-center-back:hover,#game-center-back:focus-visible{opacity:1;outline:none}
-  #game-center-back:hover span,#game-center-back:focus-visible span{max-width:110px}
+  #game-center-back:hover span,#game-center-back:focus-visible span{max-width:130px}
   @media (prefers-reduced-motion:reduce){#game-center-back,#game-center-back span{transition:none}}
 </style>
-<a href="/" id="game-center-back" aria-label="Back to Game Center" title="Back to Game Center">
+<a href="${href}" id="game-center-back" aria-label="Back to ${label}" title="Back to ${label}">
   <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" fill="currentColor">
-    <rect x="1" y="1" width="6" height="6" rx="1.5"/><rect x="9" y="1" width="6" height="6" rx="1.5"/>
-    <rect x="1" y="9" width="6" height="6" rx="1.5"/><rect x="9" y="9" width="6" height="6" rx="1.5"/>
+    ${icon}
   </svg>
-  <span>Game Center</span>
+  <span>${label}</span>
 </a>
 `
 
-function injectBackLink(indexHtml) {
+function injectBackLink(indexHtml, link) {
   const html = fs.readFileSync(indexHtml, 'utf8')
   if (html.includes('id="game-center-back"')) return
   if (!html.includes('</body>')) throw new Error(`${indexHtml} has no </body> to inject into`)
-  fs.writeFileSync(indexHtml, html.replace('</body>', `${BACK_LINK}</body>`))
+  fs.writeFileSync(indexHtml, html.replace('</body>', `${link}</body>`))
+}
+
+/** index.html files in the immediate subfolders of `dir` (a static game's sub-games). */
+function subPages(dir) {
+  return fs
+    .readdirSync(dir, { withFileTypes: true })
+    .filter((e) => e.isDirectory())
+    .map((e) => path.join(dir, e.name, 'index.html'))
+    .filter((f) => fs.existsSync(f))
 }
 
 function buildGame(game) {
@@ -103,7 +117,10 @@ function buildGame(game) {
     throw new Error(`Unknown kind "${game.kind}" for ${game.slug}`)
   }
 
-  injectBackLink(path.join(dest, 'index.html'))
+  injectBackLink(path.join(dest, 'index.html'), backLink('/', 'Game Center', HUB_ICON))
+  if (game.kind === 'static') {
+    for (const page of subPages(dest)) injectBackLink(page, backLink(`/${game.slug}/`, escape(game.title), BACK_ICON))
+  }
 }
 
 function renderCard(game) {
