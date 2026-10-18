@@ -42,14 +42,14 @@
       "accent": "#6b8a3a"
     },
     {
-      "slug": "globle",
-      "title": "Globle",
-      "tagline": "Find the mystery country. Every guess lights up the globe hotter or colder.",
-      "inspiredBy": "Globle",
-      "players": "Solo · unlimited replays",
-      "tags": ["Geography", "Puzzle"],
+      "slug": "brain-games",
+      "title": "Brain Games",
+      "tagline": "Trivia and geography puzzles: Deep Cut, where rarer answers score more, and Globle, the mystery-country globe.",
+      "inspiredBy": null,
+      "players": "Solo · daily puzzles and endless replays",
+      "tags": ["Trivia", "Geography", "Puzzle"],
       "kind": "static",
-      "accent": "#3a9b6f"
+      "accent": "#6c42e6"
     },
     {
       "slug": "rubiks-cube-solver",

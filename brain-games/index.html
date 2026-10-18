@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Brain Games</title>
+<meta name="description" content="Trivia, word and geography puzzles: Deep Cut, where rare answers score big, and Globle, the mystery-country globe game.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/brain.css">
+<style>
+  .hero { max-width: 980px; margin: 0 auto; padding: clamp(36px, 7vw, 72px) 20px 22px; text-align: center; }
+  .hero .emoji { font-size: 44px; display: inline-block; animation: bob 3.2s ease-in-out infinite; }
+  @keyframes bob { 50% { transform: translateY(-6px) rotate(-4deg); } }
+  .hero h1 {
+    margin: 6px 0 0; font-size: clamp(40px, 7.5vw, 62px); font-weight: 900; letter-spacing: -.5px; line-height: 1.05;
+    background: linear-gradient(90deg, #7a4cf0, #2f6fde 45%, #12a39a);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .hero p { max-width: 520px; margin: 14px auto 0; color: var(--muted); font-size: 17px; font-weight: 600; }
+
+  main { max-width: 980px; margin: 0 auto; padding: 8px 20px 40px; }
+  .games { list-style: none; margin: 0; padding: 0; display: grid; gap: 18px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr)); }
+  .game {
+    display: flex; gap: 18px; align-items: stretch; height: 100%; padding: 18px; text-decoration: none; color: inherit;
+    animation: rise .45s ease-out both;
+    transition: transform .18s, box-shadow .18s, border-color .18s;
+  }
+  .games li:nth-child(2) .game { animation-delay: .06s; }
+  .game:hover, .game:focus-visible { transform: translateY(-4px); box-shadow: var(--shadow-lg); border-color: color-mix(in srgb, var(--tint) 45%, var(--border)); outline: none; }
+  .tile {
+    flex: none; width: 108px; border-radius: 16px; display: grid; place-items: center; font-size: 50px;
+    background: linear-gradient(150deg, color-mix(in srgb, var(--tint) 22%, #fff), color-mix(in srgb, var(--tint) 42%, #fff));
+    box-shadow: inset 0 -4px 0 color-mix(in srgb, var(--tint) 30%, transparent);
+    transition: transform .25s;
+  }
+  .game:hover .tile { transform: rotate(-4deg) scale(1.05); }
+  .info { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .info h2 { margin: 0; font-size: 21px; font-weight: 900; }
+  .info p { margin: 0; color: var(--muted); font-weight: 600; flex: 1; }
+  .meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 6px; }
+  .chip { font-size: 12px; font-weight: 800; padding: 3px 10px; border-radius: 999px; background: color-mix(in srgb, var(--tint) 12%, transparent); color: color-mix(in srgb, var(--tint) 85%, #000); }
+  .play { margin-left: auto; font-weight: 900; color: var(--tint); }
+
+  h3.soon { margin: 34px 0 12px; font-size: 13px; letter-spacing: 1.6px; text-transform: uppercase; color: var(--muted); font-weight: 800; text-align: center; }
+  .upcoming { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+  .upcoming li {
+    display: flex; align-items: center; gap: 8px; padding: 8px 14px 8px 10px; border-radius: 999px;
+    background: var(--panel); border: 1px dashed var(--border); color: var(--muted); font-weight: 800; font-size: 14px;
+  }
+  .upcoming li span { font-size: 18px; filter: grayscale(.3); }
+  footer { text-align: center; color: var(--muted); font-size: 13px; font-weight: 600; padding: 0 20px 36px; }
+  footer a { color: var(--accent); font-weight: 800; text-decoration: none; }
+  @media (max-width: 520px) {
+    .game { flex-direction: column; }
+    .tile { width: 100%; height: 96px; }
+  }
+</style>
+</head>
+<body>
+<header class="hero">
+  <span class="emoji" aria-hidden="true">🧠</span>
+  <h1>Brain Games</h1>
+  <p>Trivia, words and geography. Quick daily puzzles and endless replays, all free in your browser.</p>
+</header>
+
+<main>
+  <ul class="games" role="list">
+    <li>
+      <a class="game panel" href="deep-cut/" style="--tint:#7a4cf0">
+        <div class="tile" aria-hidden="true">🤿</div>
+        <div class="info">
+          <h2>Deep Cut</h2>
+          <p>Name a cheese, a dog breed, an element… Any right answer counts, but the rarer it is, the more points you score.</p>
+          <div class="meta"><span class="chip">Trivia</span><span class="chip">Daily</span><span class="chip">Endless</span><span class="play">Play →</span></div>
+        </div>
+      </a>
+    </li>
+    <li>
+      <a class="game panel" href="globle/" style="--tint:#2f9e62">
+        <div class="tile" aria-hidden="true">🌍</div>
+        <div class="info">
+          <h2>Globle</h2>
+          <p>Find the mystery country. Every guess lights up the globe, hotter the closer you get.</p>
+          <div class="meta"><span class="chip">Geography</span><span class="chip">Unlimited</span><span class="play">Play →</span></div>
+        </div>
+      </a>
+    </li>
+  </ul>
+
+  <h3 class="soon">Coming soon</h3>
+  <ul class="upcoming" role="list">
+    <li><span aria-hidden="true">🟩</span>Wordle</li>
+    <li><span aria-hidden="true">🗺️</span>Worldle</li>
+    <li><span aria-hidden="true">🧭</span>Travle</li>
+    <li><span aria-hidden="true">⛏️</span>Minecraftle</li>
+    <li><span aria-hidden="true">💩</span>Poople</li>
+  </ul>
+</main>
+
+<footer>Your scores and streaks stay on this device. <a href="/">← All games</a></footer>
+</body>
+</html>
