@@ -7,7 +7,9 @@
   "trailingSlash": true,
   "redirects": [
     { "source": "/poker", "destination": "/high-rollers/holdem/", "permanent": true },
-    { "source": "/poker/(.*)", "destination": "/high-rollers/holdem/$1", "permanent": true }
+    { "source": "/poker/(.*)", "destination": "/high-rollers/holdem/$1", "permanent": true },
+    { "source": "/globle", "destination": "/brain-games/globle/", "permanent": true },
+    { "source": "/globle/(.*)", "destination": "/brain-games/globle/$1", "permanent": true }
   ],
   "headers": [
     {

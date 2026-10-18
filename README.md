@@ -10,7 +10,7 @@ hub page linking to each.
 | **Imperium Mercatorum** | [`concordia/`](concordia) | Roman trading strategy vs 1–4 bots, inspired by *Concordia* |
 | **High Rollers** | [`high-rollers/`](high-rollers) | Casino lobby with four play-money games: Hold'em Night (no-limit Texas Hold'em vs 4 bots), Blackjack, Roulette and Liar's Dice |
 | **Tank Arena** | [`tank-arena/`](tank-arena) | 3D tank battles vs bots or friends online, with unlockable weapons and hulls |
-| **Globle** | [`globle/`](globle) | Find the mystery country on a 3D globe |
+| **Brain Games** | [`brain-games/`](brain-games) | Puzzle lobby: Deep Cut (name a cheese, a dog breed… rarer answers score more) and Globle (find the mystery country on a 3D globe) |
 | **Rubik's Cube Solver** | [`rubiks-cube-solver/`](rubiks-cube-solver) | Scan a real cube with the webcam and get a step-by-step solution |
 
 Everything runs in the browser. There is no backend and no accounts; games keep their
@@ -48,8 +48,13 @@ build time, so games need no changes for it.
 A static game can also be a mini-hub with its own games in subfolders, like
 [`high-rollers/`](high-rollers): its front page links back to the hub, and each
 `<slug>/<sub-game>/index.html` gets a tab linking back to `/<slug>/` instead. High Rollers'
-games share their look through [`high-rollers/shared/`](high-rollers/shared). The old
-`/poker/` URL redirects to `/high-rollers/holdem/` (see [`vercel.json`](vercel.json)).
+games share their look through [`high-rollers/shared/`](high-rollers/shared). Brain Games works
+the same way, with [`brain-games/shared/`](brain-games/shared). The old `/poker/` and `/globle/`
+URLs redirect to their new homes (see [`vercel.json`](vercel.json)).
+
+Deep Cut's prompts live in [`brain-games/deep-cut/data/`](brain-games/deep-cut/data), one file per
+theme. Each answer is written `Name/Alias=tier`, where tier 1 is what most people say first and
+5 is a real deep cut. To add a prompt, add an entry to one of those files.
 
 ## Deploy (Vercel, free)
 

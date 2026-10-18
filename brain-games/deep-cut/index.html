@@ -1,0 +1,842 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Deep Cut · Brain Games</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=VT323&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #e9f6ff;
+    --muted: #8fb4cf;
+    --cyan: #4fe3ff;
+    --pink: #ff4fa3;
+    --yellow: #ffd23f;
+    --lime: #5cff9d;
+    --violet: #c77dff;
+    --orange: #ff7a3d;
+    --panel: rgba(6, 16, 38, .74);
+    --panel-solid: #0a1730;
+    --line: rgba(79, 227, 255, .45);
+    --t1: #9fb3c8; --t2: #4fe3ff; --t3: #5cff9d; --t4: #c77dff; --t5: #ff4fa3;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: #071a38; color: var(--ink); overflow-x: hidden;
+    font: 22px/1.15 VT323, ui-monospace, monospace; -webkit-font-smoothing: none;
+  }
+  #scene { position: fixed; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; z-index: 0; }
+  .scan { position: fixed; inset: 0; pointer-events: none; z-index: 1;
+    background: repeating-linear-gradient(0deg, rgba(0,0,0,.13) 0 1px, transparent 1px 3px); mix-blend-mode: multiply; }
+  .px { font-family: Silkscreen, VT323, monospace; letter-spacing: 1px; }
+  [hidden] { display: none !important; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+
+  /* ---------- Chrome ---------- */
+  .top { position: fixed; top: 0; left: 0; right: 0; z-index: 5; display: flex; justify-content: flex-end; gap: 8px; padding: 12px 14px; pointer-events: none; }
+  .top button { pointer-events: auto; }
+  .chip-btn {
+    font-family: Silkscreen, monospace; font-size: 13px; padding: 8px 12px; background: var(--panel); border: 2px solid var(--line);
+    color: var(--cyan); box-shadow: 0 0 0 2px rgba(0,0,0,.35), 0 0 14px rgba(79,227,255,.18); transition: transform .1s, box-shadow .15s, background .15s;
+  }
+  .chip-btn:hover { background: rgba(79,227,255,.14); box-shadow: 0 0 0 2px rgba(0,0,0,.35), 0 0 20px rgba(79,227,255,.4); }
+  .chip-btn:active { transform: translateY(2px); }
+
+  .app { position: relative; z-index: 2; min-height: 100%; display: flex; flex-direction: column; align-items: center; padding: 64px 16px 140px; }
+  .screen { width: min(760px, 100%); }
+
+  /* ---------- Home ---------- */
+  #home { display: flex; flex-direction: column; align-items: center; text-align: center; min-height: calc(100vh - 210px); }
+  .date-tag { color: var(--cyan); font-size: 15px; letter-spacing: 3px; text-shadow: 0 0 10px rgba(79,227,255,.6); margin-top: 2vh; }
+  .title {
+    margin: 18px 0 6px; font-family: Silkscreen, monospace; font-weight: 700; font-size: clamp(52px, 12vw, 108px); line-height: .95; color: #fff6fb; letter-spacing: 4px;
+    text-shadow: -4px 0 var(--pink), 4px 0 var(--cyan), 0 6px 0 rgba(0,0,0,.35), 0 0 30px rgba(255,79,163,.35);
+    animation: glitch 5s steps(1) infinite;
+  }
+  @keyframes glitch {
+    0%, 91%, 100% { transform: none; text-shadow: -4px 0 var(--pink), 4px 0 var(--cyan), 0 6px 0 rgba(0,0,0,.35), 0 0 30px rgba(255,79,163,.35); clip-path: none; }
+    92% { transform: translateX(-6px) skewX(-8deg); text-shadow: -10px 0 var(--pink), 8px 0 var(--cyan); clip-path: inset(10% 0 45% 0); }
+    93% { transform: translateX(5px); text-shadow: 6px 0 var(--pink), -9px 0 var(--lime); clip-path: inset(55% 0 5% 0); }
+    94% { transform: translateX(-2px); text-shadow: -4px 0 var(--yellow), 4px 0 var(--cyan); clip-path: none; }
+  }
+  .subtitle { color: var(--cyan); font-size: clamp(16px, 3.2vw, 22px); letter-spacing: 8px; text-shadow: 0 0 12px rgba(79,227,255,.7); }
+  .tagline { color: #d6e9ff; font-size: 23px; margin-top: 10px; text-shadow: 0 2px 0 rgba(0,0,0,.5); }
+  .spacer { flex: 1; min-height: 22vh; }
+  .menu { width: min(560px, 100%); display: flex; flex-direction: column; gap: 12px; animation: rise .6s .15s cubic-bezier(.2,.9,.3,1) both; }
+  .facts { display: grid; grid-template-columns: 1fr auto auto; border: 2px solid rgba(79,227,255,.3); background: var(--panel); font-size: 17px; color: var(--muted); }
+  .facts span { padding: 7px 12px; border-left: 2px solid rgba(79,227,255,.3); text-align: left; letter-spacing: 1px; }
+  .facts span:first-child { border-left: 0; }
+  .descend {
+    position: relative; width: 100%; padding: 18px 16px; font-family: Silkscreen, monospace; font-size: clamp(20px, 4.6vw, 30px); letter-spacing: 6px; color: #fff;
+    background: linear-gradient(180deg, rgba(79,227,255,.18), rgba(6,16,38,.85)); border: 3px solid var(--cyan);
+    box-shadow: 0 0 0 3px rgba(0,0,0,.4), 0 0 26px rgba(79,227,255,.45), inset 0 0 22px rgba(79,227,255,.25);
+    text-shadow: -2px 0 var(--pink), 2px 0 var(--cyan); overflow: hidden; transition: transform .12s, box-shadow .2s;
+  }
+  .descend::after { content: ""; position: absolute; top: 0; bottom: 0; width: 40%; left: -60%; background: linear-gradient(90deg, transparent, rgba(255,255,255,.25), transparent); transform: skewX(-20deg); animation: shine 3.2s ease-in-out infinite; }
+  @keyframes shine { 60%, 100% { left: 130%; } }
+  .descend:hover { box-shadow: 0 0 0 3px rgba(0,0,0,.4), 0 0 40px rgba(79,227,255,.75), inset 0 0 26px rgba(79,227,255,.35); }
+  .descend:active { transform: translateY(3px); }
+  .descend .arr { display: inline-block; animation: bob 1.2s ease-in-out infinite; }
+  @keyframes bob { 50% { transform: translateY(5px); } }
+  .descend.done { border-color: var(--lime); box-shadow: 0 0 0 3px rgba(0,0,0,.4), 0 0 26px rgba(92,255,157,.4); }
+  .descend small { display: block; font-family: VT323, monospace; font-size: 20px; letter-spacing: 1px; color: #bfe9ff; margin-top: 4px; text-shadow: none; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .alt {
+    padding: 12px; background: var(--panel); border: 2px solid rgba(255,79,163,.6); color: #ffd6ea; font-family: Silkscreen, monospace; font-size: 15px; letter-spacing: 2px;
+    box-shadow: 0 0 0 2px rgba(0,0,0,.35), 0 0 16px rgba(255,79,163,.22); transition: transform .12s, box-shadow .2s, background .2s;
+  }
+  .alt small { display: block; font-family: VT323, monospace; font-size: 18px; letter-spacing: 0; color: var(--muted); margin-top: 2px; }
+  .alt:hover { background: rgba(255,79,163,.12); box-shadow: 0 0 0 2px rgba(0,0,0,.35), 0 0 24px rgba(255,79,163,.5); }
+  .alt.how { border-color: rgba(255,210,63,.6); color: #fff1c2; box-shadow: 0 0 0 2px rgba(0,0,0,.35), 0 0 16px rgba(255,210,63,.18); }
+  .alt.how:hover { background: rgba(255,210,63,.1); box-shadow: 0 0 0 2px rgba(0,0,0,.35), 0 0 24px rgba(255,210,63,.45); }
+  .streak { color: var(--yellow); font-size: 20px; text-shadow: 0 0 10px rgba(255,210,63,.5); min-height: 22px; }
+
+  /* ---------- HUD ---------- */
+  .hud { display: grid; grid-template-columns: 1fr auto 1fr; align-items: start; gap: 10px; margin-bottom: max(64px, 9vh); animation: drop .5s cubic-bezier(.2,.9,.3,1) both; }
+  @keyframes drop { from { transform: translateY(-20px); opacity: 0; } }
+  .gauge { justify-self: start; background: var(--panel); border: 2px solid rgba(79,227,255,.35); padding: 6px 12px 7px; min-width: 150px; box-shadow: 0 0 0 2px rgba(0,0,0,.3); }
+  .gauge.right { justify-self: end; text-align: right; border-color: rgba(255,79,163,.4); }
+  .gauge label { display: block; font-family: Silkscreen, monospace; font-size: 11px; letter-spacing: 2px; color: var(--muted); }
+  .gauge b { font-family: Silkscreen, monospace; font-weight: 400; font-size: 24px; color: var(--cyan); text-shadow: 0 0 10px rgba(79,227,255,.6); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .gauge.right b { color: var(--pink); text-shadow: 0 0 10px rgba(255,79,163,.6); }
+  .gauge .zone { display: block; font-size: 15px; color: var(--muted); margin-top: 1px; }
+  .gauge b.bump { animation: bump .45s cubic-bezier(.2,1.6,.4,1); }
+  @keyframes bump { 40% { transform: scale(1.25); filter: brightness(1.6); } }
+  .prog { display: flex; flex-direction: column; align-items: center; gap: 5px; padding-top: 4px; }
+  .squares { display: flex; gap: 5px; }
+  .squares i { width: 14px; height: 14px; border: 2px solid rgba(79,227,255,.5); background: rgba(6,16,38,.6); transition: background .3s, border-color .3s, box-shadow .3s; }
+  .squares i.cur { border-color: #fff; animation: blink 1s steps(1) infinite; }
+  @keyframes blink { 50% { border-color: rgba(255,255,255,.3); } }
+  .squares i.t0 { background: #2a3550; border-color: #44506b; }
+  .squares i.t1 { background: var(--t1); border-color: var(--t1); } .squares i.t2 { background: var(--t2); border-color: var(--t2); box-shadow: 0 0 8px var(--t2); }
+  .squares i.t3 { background: var(--t3); border-color: var(--t3); box-shadow: 0 0 8px var(--t3); } .squares i.t4 { background: var(--t4); border-color: var(--t4); box-shadow: 0 0 8px var(--t4); }
+  .squares i.t5 { background: var(--t5); border-color: var(--t5); box-shadow: 0 0 10px var(--t5); }
+  .prog small { font-family: Silkscreen, monospace; font-size: 11px; letter-spacing: 2px; color: var(--muted); }
+  .hearts { display: flex; gap: 6px; font-size: 22px; } .hearts span { color: var(--pink); text-shadow: 0 0 8px var(--pink); transition: all .4s; } .hearts span.gone { color: #2a3550; text-shadow: none; transform: scale(.7); }
+
+  /* ---------- Prompt card ---------- */
+  .card {
+    position: relative; background: rgba(5, 13, 32, .88); border: 2px solid var(--line); padding: 20px 24px 18px;
+    box-shadow: 0 0 0 3px rgba(0,0,0,.35), 0 0 30px rgba(79,227,255,.15), inset 0 0 40px rgba(79,227,255,.06);
+    backdrop-filter: blur(6px); animation: cardIn .45s cubic-bezier(.2,.9,.3,1) both;
+  }
+  .card::before, .card::after { content: ""; position: absolute; width: 10px; height: 10px; border: 2px solid var(--cyan); }
+  .card::before { top: -6px; left: -6px; border-right: 0; border-bottom: 0; }
+  .card::after { bottom: -6px; right: -6px; border-left: 0; border-top: 0; }
+  @keyframes cardIn { from { transform: translateY(26px) scale(.97); opacity: 0; filter: blur(4px); } }
+  .card.out { animation: cardOut .25s ease-in both; }
+  @keyframes cardOut { to { transform: translateY(-20px); opacity: 0; filter: blur(4px); } }
+  .label { font-family: Silkscreen, monospace; font-size: 12px; letter-spacing: 3px; color: var(--pink); text-shadow: 0 0 8px rgba(255,79,163,.6); }
+  .label .cat { color: var(--yellow); text-shadow: 0 0 8px rgba(255,210,63,.5); }
+  .prompt { font-size: clamp(34px, 6.4vw, 50px); line-height: 1.02; margin: 10px 0 8px; color: #fff; text-shadow: 0 0 14px rgba(255,255,255,.25); min-height: 1em; }
+  .caret { display: inline-block; width: .5em; height: .9em; background: var(--cyan); vertical-align: -0.08em; margin-left: 3px; animation: blink 0.8s steps(1) infinite; box-shadow: 0 0 8px var(--cyan); }
+  .hint { color: var(--muted); font-size: 20px; }
+  .misses { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; min-height: 0; }
+  .misses span { font-size: 19px; color: #ff9cbc; text-decoration: line-through; background: rgba(255,79,163,.1); border: 1px solid rgba(255,79,163,.35); padding: 0 8px; animation: pop .25s cubic-bezier(.2,1.6,.4,1) both; }
+  @keyframes pop { from { transform: scale(.4); opacity: 0; } }
+  .card.wrong { animation: shake .4s, redflash .4s; }
+  @keyframes shake { 15%, 85% { transform: translateX(-3px); } 30%, 70% { transform: translateX(6px); } 45% { transform: translateX(-9px); } 60% { transform: translateX(9px); } }
+  @keyframes redflash { 0% { border-color: #ff3b5c; box-shadow: 0 0 0 3px rgba(0,0,0,.35), 0 0 40px rgba(255,59,92,.6); } }
+
+  /* ---------- Answer bar ---------- */
+  .bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 4; padding: 14px 16px calc(16px + env(safe-area-inset-bottom)); display: flex; justify-content: center;
+    background: linear-gradient(180deg, transparent, rgba(2,8,22,.75) 40%); animation: up .45s cubic-bezier(.2,.9,.3,1) both; }
+  @keyframes up { from { transform: translateY(100%); } }
+  .bar form { width: min(760px, 100%); display: grid; grid-template-columns: auto 1fr auto auto; gap: 10px; align-items: center; }
+  .timer { width: 58px; height: 58px; position: relative; }
+  .timer svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .timer circle { fill: rgba(6,16,38,.85); stroke-width: 5; }
+  .timer .bg { stroke: rgba(79,227,255,.18); }
+  .timer .fg { fill: none; stroke: var(--cyan); filter: drop-shadow(0 0 4px var(--cyan)); transition: stroke .3s; }
+  .timer.warn .fg { stroke: var(--yellow); filter: drop-shadow(0 0 4px var(--yellow)); }
+  .timer.crit .fg { stroke: var(--pink); filter: drop-shadow(0 0 5px var(--pink)); }
+  .timer.crit { animation: tick 1s steps(2) infinite; }
+  @keyframes tick { 50% { transform: scale(1.08); } }
+  .timer span { position: absolute; inset: 0; display: grid; place-items: center; font-family: Silkscreen, monospace; font-size: 18px; color: #fff; }
+  .field { position: relative; }
+  .field input {
+    width: 100%; font: 28px VT323, monospace; color: #fff; background: rgba(4,12,30,.88); border: 2px solid var(--line); padding: 10px 14px; outline: none;
+    box-shadow: 0 0 0 2px rgba(0,0,0,.35); transition: border-color .15s, box-shadow .15s;
+  }
+  .field input::placeholder { color: #5f80a0; }
+  .field input:focus { border-color: var(--cyan); box-shadow: 0 0 0 2px rgba(0,0,0,.35), 0 0 22px rgba(79,227,255,.35); }
+  .field .fuse { position: absolute; left: 0; bottom: -6px; height: 3px; background: var(--cyan); box-shadow: 0 0 8px var(--cyan); width: 100%; transform-origin: left; }
+  .dive {
+    font-family: Silkscreen, monospace; font-size: 20px; letter-spacing: 3px; padding: 14px 18px; color: #fff; background: linear-gradient(180deg, #ff6bb5, #c92f7d);
+    border: 2px solid #ff9ccc; box-shadow: 0 0 0 2px rgba(0,0,0,.4), 0 4px 0 #7a1747, 0 0 22px rgba(255,79,163,.45); transition: transform .08s, filter .15s;
+  }
+  .dive:hover { filter: brightness(1.12); } .dive:active { transform: translateY(3px); box-shadow: 0 0 0 2px rgba(0,0,0,.4), 0 1px 0 #7a1747; }
+  .pass { font-family: Silkscreen, monospace; font-size: 12px; letter-spacing: 2px; color: var(--muted); background: rgba(6,16,38,.7); border: 2px solid rgba(143,180,207,.35); padding: 15px 10px; }
+  .pass:hover { color: #fff; border-color: #fff; }
+
+  /* ---------- Reveal ---------- */
+  .reveal { text-align: center; }
+  .got { font-size: 21px; color: var(--muted); margin-top: 6px; }
+  .word { font-family: Silkscreen, monospace; font-weight: 700; font-size: clamp(30px, 7vw, 54px); line-height: 1.05; margin: 8px 0 2px; color: #fff; letter-spacing: 1px;
+    text-shadow: -3px 0 var(--pink), 3px 0 var(--cyan); animation: wordIn .55s cubic-bezier(.2,1.4,.4,1) both; overflow-wrap: anywhere; }
+  @keyframes wordIn { 0% { transform: scale(2.2); opacity: 0; filter: blur(8px); letter-spacing: 16px; } 60% { filter: none; } }
+  .word.miss { color: #6c86a3; text-shadow: none; animation: sinkIn .5s ease-out both; }
+  @keyframes sinkIn { from { transform: translateY(-14px); opacity: 0; } }
+  .pts { font-family: Silkscreen, monospace; font-size: 34px; color: var(--tc, var(--cyan)); text-shadow: 0 0 16px var(--tc, var(--cyan)); animation: ptsIn .7s .15s cubic-bezier(.2,1.6,.4,1) both; }
+  .pts small { font-size: 16px; color: var(--muted); text-shadow: none; }
+  @keyframes ptsIn { from { transform: translateY(18px) scale(.5); opacity: 0; } }
+  .tier { display: inline-block; font-family: Silkscreen, monospace; font-size: 14px; letter-spacing: 2px; padding: 5px 12px; color: #061021; background: var(--tc); box-shadow: 0 0 0 2px rgba(0,0,0,.35), 0 0 18px var(--tc); animation: pop .4s .3s cubic-bezier(.2,1.6,.4,1) both; }
+  .t1 { --tc: var(--t1); } .t2 { --tc: var(--t2); } .t3 { --tc: var(--t3); } .t4 { --tc: var(--t4); } .t5 { --tc: var(--t5); }
+  .scale { margin: 18px auto 2px; max-width: 460px; }
+  .scale .steps { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+  .scale .steps i { height: 12px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.12); transition: background .3s, box-shadow .3s; }
+  .scale .steps i.on { background: var(--sc); box-shadow: 0 0 10px var(--sc); border-color: var(--sc); }
+  .scale .ends { display: flex; justify-content: space-between; font-family: Silkscreen, monospace; font-size: 10px; letter-spacing: 2px; color: var(--muted); margin-top: 6px; }
+  .others { margin-top: 16px; text-align: left; border-top: 2px dashed rgba(79,227,255,.25); padding-top: 12px; }
+  .others h4 { margin: 0 0 6px; font-family: Silkscreen, monospace; font-weight: 400; font-size: 11px; letter-spacing: 2px; color: var(--muted); }
+  .others .row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+  .others .row span { font-size: 20px; padding: 1px 9px; border: 1px solid rgba(159,179,200,.4); color: #d3e2f2; animation: pop .3s both; }
+  .others .row.deep span { border-color: rgba(199,125,255,.6); color: #e9d3ff; box-shadow: 0 0 10px rgba(199,125,255,.2); }
+  .others .count { font-size: 18px; color: var(--muted); }
+  .next { margin-top: 16px; width: 100%; font-family: Silkscreen, monospace; font-size: 18px; letter-spacing: 4px; padding: 14px; color: #fff;
+    background: rgba(79,227,255,.12); border: 2px solid var(--cyan); box-shadow: 0 0 0 2px rgba(0,0,0,.35), 0 0 18px rgba(79,227,255,.35); animation: pop .35s .45s both; }
+  .next:hover { background: rgba(79,227,255,.22); }
+  .next kbd { font: 15px VT323, monospace; color: var(--muted); margin-left: 8px; letter-spacing: 0; }
+
+  /* ---------- Effects ---------- */
+  .flash { position: fixed; inset: 0; z-index: 3; pointer-events: none; background: var(--fc, #fff); opacity: 0; }
+  .flash.go { animation: flash .5s ease-out; }
+  @keyframes flash { 0% { opacity: .26; } 100% { opacity: 0; } }
+  .floater { position: fixed; z-index: 6; pointer-events: none; font-family: Silkscreen, monospace; font-size: 30px; color: var(--tc); text-shadow: 0 0 14px var(--tc), 0 3px 0 rgba(0,0,0,.5); animation: floatUp 1.3s cubic-bezier(.2,.8,.3,1) forwards; }
+  @keyframes floatUp { 0% { transform: translate(-50%, 10px) scale(.6); opacity: 0; } 15% { opacity: 1; transform: translate(-50%, -10px) scale(1.15); } 100% { transform: translate(-50%, -120px) scale(1); opacity: 0; } }
+  .zone-banner { position: fixed; left: 50%; top: 122px; z-index: 6; width: min(760px, calc(100% - 32px)); pointer-events: none; text-align: center; transform: translateX(-50%); animation: zoneIn 2.6s ease-out forwards; }
+  .zone-banner b { display: block; font-family: Silkscreen, monospace; font-weight: 700; font-size: clamp(18px, 3.6vw, 26px); letter-spacing: 6px; color: #fff; text-shadow: -3px 0 var(--pink), 3px 0 var(--cyan), 0 0 24px rgba(79,227,255,.6); }
+  .zone-banner span { font-size: 18px; color: var(--cyan); letter-spacing: 4px; }
+  .zone-banner::before, .zone-banner::after { content: ""; position: absolute; top: 50%; width: 18%; height: 2px; background: linear-gradient(90deg, transparent, var(--cyan)); }
+  .zone-banner::before { left: 0; } .zone-banner::after { right: 0; transform: scaleX(-1); }
+  @keyframes zoneIn { 0% { opacity: 0; transform: translate(-50%, 14px) scale(.9); } 12%, 75% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; transform: translate(-50%, -16px); } }
+  body.quake .app { animation: quake .5s; }
+  @keyframes quake { 10%, 50%, 90% { transform: translate(-4px, 2px); } 30%, 70% { transform: translate(5px, -3px); } }
+  body.abyss .card { animation: abyssGlitch .6s steps(2); }
+  @keyframes abyssGlitch { 20% { filter: hue-rotate(90deg) saturate(2); transform: translateX(-6px) skewX(4deg); } 40% { filter: hue-rotate(-60deg); transform: translateX(6px); } 60% { filter: invert(.15); transform: none; } }
+
+  /* ---------- Results ---------- */
+  .report-head { text-align: center; }
+  .report-head .label { display: block; }
+  .report-head .zone-name { font-family: Silkscreen, monospace; font-weight: 700; font-size: clamp(26px, 6vw, 42px); margin: 8px 0 4px; letter-spacing: 2px; text-shadow: -3px 0 var(--pink), 3px 0 var(--cyan); }
+  .bigs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 14px 0 8px; }
+  .bigs div { border: 2px solid rgba(79,227,255,.35); padding: 8px; background: rgba(4,12,30,.6); }
+  .bigs label { display: block; font-family: Silkscreen, monospace; font-size: 11px; letter-spacing: 2px; color: var(--muted); }
+  .bigs b { font-family: Silkscreen, monospace; font-weight: 400; font-size: clamp(26px, 6vw, 40px); color: var(--cyan); text-shadow: 0 0 14px rgba(79,227,255,.6); font-variant-numeric: tabular-nums; }
+  .bigs div + div b { color: var(--pink); text-shadow: 0 0 14px rgba(255,79,163,.6); }
+  .emoji { font-size: 26px; letter-spacing: 4px; margin: 4px 0; }
+  .rows { list-style: none; padding: 0; margin: 12px 0 0; display: flex; flex-direction: column; gap: 6px; }
+  .rows li { display: grid; grid-template-columns: 6px 1fr auto; gap: 2px 12px; align-items: center; padding: 6px 12px 6px 0; background: rgba(4,12,30,.55); border: 1px solid rgba(79,227,255,.18); animation: slideIn .4s cubic-bezier(.2,.9,.3,1) both; }
+  @keyframes slideIn { from { transform: translateX(-24px); opacity: 0; } }
+  .rows li .bar6 { grid-row: 1 / 3; align-self: stretch; background: var(--tc, #2a3550); box-shadow: 0 0 8px var(--tc, transparent); }
+  .rows li .q { font-size: 18px; color: var(--muted); }
+  .rows li .a { font-size: 24px; color: #fff; }
+  .rows li .a.miss { color: #5f7a99; }
+  .rows li .p { grid-row: 1 / 3; grid-column: 3; font-family: Silkscreen, monospace; font-size: 18px; color: var(--tc, var(--muted)); text-shadow: 0 0 8px var(--tc, transparent); }
+  .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px; }
+  .countdown { text-align: center; color: var(--muted); font-size: 20px; margin-top: 12px; letter-spacing: 1px; }
+
+  /* ---------- Dialogs ---------- */
+  dialog { background: var(--panel-solid); color: var(--ink); border: 2px solid var(--cyan); padding: 18px 20px; width: min(500px, calc(100vw - 28px));
+    box-shadow: 0 0 0 4px rgba(0,0,0,.5), 0 0 40px rgba(79,227,255,.3); }
+  dialog[open] { animation: cardIn .35s cubic-bezier(.2,.9,.3,1); }
+  dialog::backdrop { background: rgba(0,6,20,.6); backdrop-filter: blur(2px); }
+  .dlg-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .dlg-head b { font-family: Silkscreen, monospace; font-size: 18px; letter-spacing: 2px; color: var(--cyan); }
+  .dlg-head button { background: none; border: 2px solid rgba(143,180,207,.4); color: var(--muted); font-family: Silkscreen, monospace; padding: 2px 8px; }
+  dialog ol { padding-left: 22px; margin: 6px 0 10px; } dialog li { margin-bottom: 6px; color: #cfe2f5; } dialog p { color: #cfe2f5; margin: 8px 0; }
+  dialog b { color: #fff; }
+  .tiers { display: grid; grid-template-columns: auto 1fr auto; gap: 6px 12px; align-items: center; margin: 10px 0; }
+  .tiers .tier { animation: none; font-size: 11px; text-align: center; }
+  .tiers em { font-style: normal; color: var(--muted); } .tiers strong { font-family: Silkscreen, monospace; font-weight: 400; color: var(--tc); }
+  .statgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 10px 0; }
+  .statgrid div { text-align: center; border: 2px solid rgba(79,227,255,.3); padding: 8px 4px; }
+  .statgrid b { display: block; font-family: Silkscreen, monospace; font-weight: 400; font-size: 22px; color: var(--cyan); }
+  .statgrid span { font-size: 16px; color: var(--muted); }
+  .toast { position: fixed; left: 50%; top: 18px; z-index: 50; transform: translate(-50%, -30px); opacity: 0; transition: all .25s; background: var(--lime); color: #04210f; font-family: Silkscreen, monospace; font-size: 14px; padding: 8px 14px; box-shadow: 0 0 20px rgba(92,255,157,.6); pointer-events: none; }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+  @media (max-width: 600px) {
+    body { font-size: 20px; }
+    .app { padding: 62px 12px 130px; }
+    .hud { margin-bottom: 10vh; }
+    .gauge { min-width: 0; padding: 5px 8px; } .gauge b { font-size: 18px; } .gauge .zone { display: none; }
+    .squares i { width: 10px; height: 10px; }
+    .card { padding: 16px 16px 14px; }
+    .bar form { grid-template-columns: auto 1fr auto; } .pass { display: none; }
+    .timer { width: 50px; height: 50px; }
+    .dive { padding: 13px 12px; font-size: 16px; letter-spacing: 2px; }
+    .facts { grid-template-columns: 1fr; } .facts span { border-left: 0; border-top: 2px solid rgba(79,227,255,.3); } .facts span:first-child { border-top: 0; }
+    .row2 { grid-template-columns: 1fr; }
+    .descend { font-size: 18px; letter-spacing: 3px; padding: 14px 10px; }
+    .statgrid { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }
+</style>
+</head>
+<body>
+<canvas id="scene" aria-hidden="true"></canvas>
+<div class="scan" aria-hidden="true"></div>
+<div class="flash" id="flash"></div>
+
+<div class="top">
+  <button class="chip-btn" id="homeBtn" type="button" hidden>▲ Surface</button>
+  <button class="chip-btn" id="helpBtn" type="button" title="How to dive">?</button>
+  <button class="chip-btn" id="statsBtn" type="button" title="Statistics">Stats</button>
+</div>
+
+<div class="app">
+  <!-- Home -->
+  <section class="screen" id="home">
+    <div class="date-tag px" id="dateTag">DAILY</div>
+    <h1 class="title">DEEP CUT</h1>
+    <div class="subtitle px">THE RARE ANSWER DIVE</div>
+    <div class="tagline">name anything · the rarer the answer, the deeper you sink</div>
+    <div class="spacer"></div>
+    <div class="menu">
+      <div class="facts"><span id="factDaily">DIVE #1 · 7 PROMPTS</span><span>25 SEC EACH</span><span>1 DIVE A DAY</span></div>
+      <button class="descend" id="dailyBtn" type="button"><span class="arr">▼</span> <span id="dailyLabel">BEGIN DESCENT</span> <span class="arr">▼</span><small id="dailySub">today's seven prompts</small></button>
+      <div class="row2">
+        <button class="alt" id="endlessBtn" type="button">ENDLESS DIVE<small id="endlessSub">keep going until you miss three</small></button>
+        <button class="alt how" id="howBtn" type="button">HOW TO DIVE<small>rules and scoring</small></button>
+      </div>
+      <div class="streak" id="streakLine"></div>
+    </div>
+  </section>
+
+  <!-- Play -->
+  <section class="screen" id="play" hidden>
+    <div class="hud">
+      <div class="gauge"><label>DEPTH</label><b id="depthVal">-0 m</b><span class="zone" id="zoneVal">Sunlight zone</span></div>
+      <div class="prog"><div class="squares" id="squares"></div><div class="hearts" id="hearts" hidden></div><small id="progLabel">PROMPT 1 OF 7</small></div>
+      <div class="gauge right"><label>SCORE</label><b id="scoreVal">0</b></div>
+    </div>
+    <div class="card" id="card"></div>
+  </section>
+
+  <!-- Results -->
+  <section class="screen" id="results" hidden>
+    <div class="hud" style="margin-bottom:4vh">
+      <div class="gauge"><label>DEPTH</label><b id="depthVal2">-0 m</b></div>
+      <div></div>
+      <div class="gauge right"><label>SCORE</label><b id="scoreVal2">0</b></div>
+    </div>
+    <div class="card" id="report"></div>
+  </section>
+</div>
+
+<div class="bar" id="bar" hidden>
+  <form id="answerForm" autocomplete="off">
+    <div class="timer" id="timer"><svg viewBox="0 0 58 58"><circle class="bg" cx="29" cy="29" r="25"/><circle class="fg" id="timerFg" cx="29" cy="29" r="25" stroke-dasharray="157.08" stroke-dashoffset="0"/></svg><span id="timerNum">25</span></div>
+    <div class="field"><input id="answer" type="text" placeholder="type one answer…" autocapitalize="off" spellcheck="false" enterkeyhint="go" aria-label="Your answer"><div class="fuse" id="fuse"></div></div>
+    <button class="dive" type="submit">DIVE</button>
+    <button class="pass" type="button" id="passBtn">PASS</button>
+  </form>
+</div>
+
+<dialog id="helpDlg">
+  <div class="dlg-head"><b>HOW TO DIVE</b><button type="button" data-close>X</button></div>
+  <ol>
+    <li>Each prompt asks you to <b>name something</b>: a cheese, a dog breed, a river…</li>
+    <li>You have <b>25 seconds</b>. Wrong guesses only cost time, so keep typing.</li>
+    <li>Any correct answer counts, but <b>rarer answers score more</b> and sink you deeper. Answering fast adds up to <b>+15</b>.</li>
+  </ol>
+  <div class="tiers">
+    <span class="tier t1">OBVIOUS</span><em>what everyone says first</em><strong class="t1">10</strong>
+    <span class="tier t2">POPULAR</span><em>well known</em><strong class="t2">25</strong>
+    <span class="tier t3">SOLID</span><em>you'd need to know a bit</em><strong class="t3">45</strong>
+    <span class="tier t4">DEEP CUT</span><em>real knowledge</em><strong class="t4">65</strong>
+    <span class="tier t5">ABYSSAL</span><em>almost nobody says it</em><strong class="t5">85</strong>
+  </div>
+  <p><b>Today's Dive</b> is seven prompts, the same all day. <b>Endless Dive</b> goes on until you time out or pass three times.</p>
+  <p style="color:var(--muted)">Typos, accents, plurals and "the" don't matter. Answers are checked against built-in lists, so now and then a real answer might be missing.</p>
+</dialog>
+
+<dialog id="statsDlg">
+  <div class="dlg-head"><b>LOGBOOK</b><button type="button" data-close>X</button></div>
+  <div class="statgrid" id="statsBody"></div>
+  <p id="statsExtra" style="text-align:center;color:var(--muted)"></p>
+</dialog>
+<div class="toast" id="toast"></div>
+
+<script src="../shared/brain.js"></script>
+<script src="data/food-animals.js"></script>
+<script src="data/geography.js"></script>
+<script src="data/science-nature.js"></script>
+<script src="data/culture-sports.js"></script>
+<script src="scene.js"></script>
+<script>
+const ROUND_SECONDS = 25;
+const DAILY_COUNT = 7;
+const LIVES = 3;
+const TIER_POINTS = [0, 10, 25, 45, 65, 85];
+const TIER_NAMES = ['MISSED', 'OBVIOUS', 'POPULAR', 'SOLID', 'DEEP CUT', 'ABYSSAL'];
+const TIER_EMOJI = ['⬛', '⬜', '🟦', '🟩', '🟪', '🟥'];
+const SPEED_BONUS = 15;
+const START_DEPTH = 150;            // metres below the surface when a dive starts
+const METRES_PER_POINT = 15;        // a perfect daily dive reaches the Challenger Deep
+const FIRST_DAY = dayNumber(new Date(2026, 9, 18));   // Deep Cut #1
+const ZONES = [[0, 'Sunlight zone'], [200, 'Twilight zone'], [1000, 'Midnight zone'], [4000, 'Abyssal zone'], [6000, 'Hadal zone']];
+const zoneAt = m => ZONES.filter(([d]) => m >= d).pop()[1];
+const store = makeStore('deep-cut:');
+
+// ---------- Answer lists ----------
+// Each prompt's answers are "Name/Alias/Alias=tier; …" (tier 1 = obvious … 5 = abyssal).
+const norm = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+  .replace(/&/g, ' and ').replace(/\+/g, ' plus ').replace(/#/g, ' sharp ').replace(/['’`.!]/g, '')
+  .replace(/[^a-z0-9]+/g, ' ').trim().replace(/^(the|a|an) /, '');
+const squash = s => norm(s).replace(/ /g, '');
+const singular = s => s.length > 4 && s.endsWith('ies') ? s.slice(0, -3) + 'y'
+  : s.length > 4 && /(ches|shes|xes|ses|zes)$/.test(s) ? s.slice(0, -2)
+  : s.length > 3 && s.endsWith('s') && !s.endsWith('ss') ? s.slice(0, -1) : s;
+
+const PROMPTS = DEEP_CUT_PROMPTS.map(p => {
+  const answers = [], seen = new Set();
+  for (const entry of p.a.split(';').map(x => x.trim()).filter(Boolean)) {
+    const [names, t] = entry.split('=');
+    const all = names.split('/').map(x => x.trim()).filter(Boolean);
+    const keys = all.map(squash);
+    if (seen.has(keys[0])) continue;   // the same answer listed twice
+    seen.add(keys[0]);
+    answers.push({ name: all[0], keys, tier: Math.min(5, Math.max(1, +t || 3)) });
+  }
+  // First listing wins, so an alias can't steal a key from an earlier answer.
+  const exact = new Map();
+  for (const a of answers) for (const k of a.keys) {
+    if (!exact.has(k)) exact.set(k, a);
+    if (!exact.has(singular(k))) exact.set(singular(k), a);
+  }
+  return { ...p, answers, exact };
+});
+
+function lev(a, b, max) {
+  if (Math.abs(a.length - b.length) > max) return max + 1;
+  let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i];
+    let best = i;
+    for (let j = 1; j <= b.length; j++) {
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      best = Math.min(best, cur[j]);
+    }
+    if (best > max) return max + 1;
+    prev = cur;
+  }
+  return prev[b.length];
+}
+function judge(prompt, guess) {
+  const k = squash(guess);
+  if (!k) return null;
+  const hit = prompt.exact.get(k) || prompt.exact.get(singular(k));
+  if (hit) return hit;
+  const max = k.length >= 9 ? 2 : k.length >= 5 ? 1 : 0;
+  if (!max) return null;
+  let best = null, bestD = max + 1;
+  for (const a of prompt.answers) for (const key of a.keys) {
+    if (key.length < 4) continue;
+    const d = Math.min(lev(k, key, max), lev(singular(k), key, max));
+    if (d < bestD) { bestD = d; best = a; }
+  }
+  return best;
+}
+
+// ---------- State ----------
+let mode = null;            // 'daily' | 'endless'
+let queue = [], results = [], lives = LIVES, score = 0, idx = 0;
+let current = null, misses = [], deadline = 0, raf = 0, answered = true, typing = 0;
+
+const dailyPool = shuffled(PROMPTS.map(p => p.id), seeded(20261018));
+const todayIndex = () => dayNumber() - FIRST_DAY;
+function dailyIds() {
+  const d = Math.max(0, todayIndex());
+  return Array.from({ length: DAILY_COUNT }, (_, k) => dailyPool[(d * DAILY_COUNT + k) % dailyPool.length]);
+}
+const byId = id => PROMPTS.find(p => p.id === id);
+const fmt = n => n.toLocaleString('en-US');
+const depthFor = s => START_DEPTH + s * METRES_PER_POINT;
+const escapeHtml = s => s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+
+function show(id) {
+  for (const s of ['home', 'play', 'results']) $(s).hidden = s !== id;
+  $('homeBtn').hidden = id === 'home';
+  $('bar').hidden = id !== 'play';
+  Scene.diver = id !== 'home';
+  window.scrollTo({ top: 0 });
+}
+
+// Depth readout follows the camera every frame; a zone banner shows when you cross into a new zone.
+let lastZone = 'Sunlight zone';
+Scene.onFrame(m => {
+  const txt = `-${fmt(Math.round(m))} m`;
+  if ($('depthVal').textContent !== txt) { $('depthVal').textContent = txt; $('depthVal2').textContent = txt; }
+  const z = zoneAt(m);
+  if (z !== lastZone) {
+    if (!$('play').hidden && ZONES.findIndex(x => x[1] === z) > ZONES.findIndex(x => x[1] === lastZone)) zoneBanner(z, m);
+    lastZone = z; $('zoneVal').textContent = z;
+  }
+});
+function zoneBanner(z, m) {
+  document.querySelectorAll('.zone-banner').forEach(b => b.remove());
+  const el = document.createElement('div');
+  el.className = 'zone-banner';
+  el.innerHTML = `<b>ENTERING THE ${z.toUpperCase()}</b><span>BELOW ${fmt(ZONES.find(x => x[1] === z)[0])} M</span>`;
+  document.body.append(el);
+  setTimeout(() => el.remove(), 2700);
+}
+
+// ---------- Home ----------
+function renderHome() {
+  cancelAnimationFrame(raf); clearInterval(cdTimer); answered = true;
+  Scene.sinkTo(0);
+  const d = store.get('daily', null);
+  const today = todayIndex();
+  const date = new Date();
+  $('dateTag').textContent = `DAILY · ${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  $('factDaily').textContent = `DIVE #${today + 1} · 7 PROMPTS`;
+  const btn = $('dailyBtn');
+  btn.classList.remove('done');
+  if (d && d.day === today && d.done) {
+    btn.classList.add('done');
+    $('dailyLabel').textContent = 'SURFACE REPORT';
+    $('dailySub').textContent = `you reached -${fmt(depthFor(d.results.reduce((s, r) => s + r.pts, 0)))} m today`;
+  } else if (d && d.day === today && d.results.length) {
+    $('dailyLabel').textContent = 'RESUME DESCENT';
+    $('dailySub').textContent = `${d.results.length} of ${DAILY_COUNT} prompts answered`;
+  } else {
+    $('dailyLabel').textContent = 'BEGIN DESCENT';
+    $('dailySub').textContent = "today's seven prompts";
+  }
+  const best = store.get('endlessBest', 0);
+  $('endlessSub').textContent = best ? `best: ${fmt(best)} pts` : 'keep going until you miss three';
+  const st = stats();
+  $('streakLine').textContent = st.streak ? `★ ${st.streak}-DAY STREAK ★` : '';
+  show('home');
+}
+
+function startDaily() {
+  const today = todayIndex();
+  let d = store.get('daily', null);
+  if (!d || d.day !== today) { d = { day: today, results: [], done: false }; store.set('daily', d); }
+  mode = 'daily';
+  queue = dailyIds();
+  results = d.results.slice();
+  score = results.reduce((s, r) => s + r.pts, 0);
+  idx = results.length;
+  if (d.done || idx >= queue.length) { Scene.sinkTo(depthFor(score)); return showResults(); }
+  begin();
+}
+function startEndless() {
+  mode = 'endless';
+  const recent = new Set(dailyIds());
+  queue = shuffled(PROMPTS.map(p => p.id)).sort((a, b) => recent.has(a) - recent.has(b));
+  results = []; score = 0; idx = 0; lives = LIVES;
+  begin();
+}
+function begin() {
+  shownScore = score;
+  $('scoreVal').textContent = fmt(score);
+  show('play');
+  Scene.sinkTo(depthFor(score));
+  Scene.burst(30);
+  nextPrompt();
+}
+
+// ---------- HUD ----------
+let shownScore = 0;
+function renderHud() {
+  if (mode === 'daily') {
+    $('squares').hidden = false; $('hearts').hidden = true;
+    $('squares').innerHTML = queue.map((_, i) => `<i class="${results[i] ? 't' + results[i].tier : i === idx ? 'cur' : ''}"></i>`).join('');
+    $('progLabel').textContent = `PROMPT ${Math.min(idx + 1, queue.length)} OF ${queue.length}`;
+  } else {
+    $('squares').hidden = true; $('hearts').hidden = false;
+    $('hearts').innerHTML = Array.from({ length: LIVES }, (_, i) => `<span class="${i < lives ? '' : 'gone'}">♥</span>`).join('');
+    $('progLabel').textContent = `PROMPT ${idx + 1}`;
+  }
+}
+function rollScore() {
+  const from = shownScore, to = score, t0 = performance.now(), el = $('scoreVal');
+  el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
+  const step = now => {
+    const k = Math.min(1, (now - t0) / 900);
+    shownScore = Math.round(from + (to - from) * (1 - (1 - k) ** 3));
+    el.textContent = fmt(shownScore);
+    if (k < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
+// ---------- A prompt ----------
+function nextPrompt() {
+  if (mode === 'daily' && idx >= queue.length) return showResults();
+  if (mode === 'endless') {
+    if (lives <= 0) return showResults();
+    if (idx >= queue.length) queue = queue.concat(shuffled(PROMPTS.map(p => p.id)));
+  }
+  const card = $('card');
+  const go = () => {
+    current = byId(queue[idx]);
+    misses = []; answered = false;
+    renderHud();
+    card.className = 'card';
+    card.innerHTML = `
+      <div class="label">${mode === 'daily' ? `PROMPT ${idx + 1} OF ${queue.length}` : `PROMPT ${idx + 1}`} · <span class="cat">${current.cat.toUpperCase()}</span></div>
+      <div class="prompt" id="promptText"><span class="caret"></span></div>
+      <div class="hint">rarer answers sink deeper · ${fmt(current.answers.length)} on the list</div>
+      <div class="misses" id="misses"></div>`;
+    typeOut(current.q);
+    $('bar').hidden = false;
+    $('answer').value = ''; $('answer').disabled = false;
+    setTimeout(() => $('answer').focus(), 30);
+    deadline = performance.now() + ROUND_SECONDS * 1000;
+    tickTimer();
+  };
+  if (card.innerHTML) { card.classList.add('out'); setTimeout(go, 220); } else go();
+}
+function typeOut(text) {
+  clearInterval(typing);
+  const el = $('promptText');
+  let i = 0;
+  typing = setInterval(() => {
+    i += 1;
+    el.innerHTML = escapeHtml(text.slice(0, i)) + '<span class="caret"></span>';
+    if (i >= text.length) clearInterval(typing);
+  }, 22);
+}
+function tickTimer() {
+  cancelAnimationFrame(raf);
+  const C = 157.08;
+  const loop = now => {
+    if (answered) return;
+    const left = Math.max(0, deadline - now), frac = left / (ROUND_SECONDS * 1000);
+    $('timerFg').setAttribute('stroke-dashoffset', String(C * (1 - frac)));
+    $('timerNum').textContent = Math.ceil(left / 1000);
+    $('timer').className = 'timer' + (left < 5000 ? ' crit' : left < 10000 ? ' warn' : '');
+    $('fuse').style.transform = `scaleX(${frac})`;
+    $('fuse').style.background = left < 5000 ? 'var(--pink)' : left < 10000 ? 'var(--yellow)' : 'var(--cyan)';
+    if (left <= 0) return finishPrompt(null, false);
+    raf = requestAnimationFrame(loop);
+  };
+  raf = requestAnimationFrame(loop);
+}
+
+function submitGuess() {
+  if (answered) return;
+  const input = $('answer');
+  const guess = input.value.trim();
+  if (!guess) return;
+  const hit = judge(current, guess);
+  if (hit) return finishPrompt({ hit, guess }, false);
+  if (!misses.some(m => squash(m) === squash(guess))) {
+    misses.push(guess);
+    $('misses').insertAdjacentHTML('beforeend', `<span>${escapeHtml(guess)}</span>`);
+  }
+  const card = $('card');
+  card.classList.remove('wrong'); void card.offsetWidth; card.classList.add('wrong');
+  flash('#ff3b5c');
+  input.select();
+}
+
+function flash(colour) {
+  const f = $('flash');
+  f.style.setProperty('--fc', colour);
+  f.classList.remove('go'); void f.offsetWidth; f.classList.add('go');
+}
+function floater(text, tier) {
+  const r = $('answer').getBoundingClientRect();
+  const el = document.createElement('div');
+  el.className = 'floater t' + tier;
+  el.style.left = (r.left + r.width / 2) + 'px'; el.style.top = (r.top - 10) + 'px';
+  el.textContent = text;
+  document.body.append(el);
+  setTimeout(() => el.remove(), 1400);
+}
+
+function finishPrompt(res, passed) {
+  if (answered) return;
+  answered = true;
+  cancelAnimationFrame(raf); clearInterval(typing);
+  $('answer').disabled = true;
+  const left = Math.max(0, deadline - performance.now());
+  let pts = 0, tier = 0, name = null;
+  if (res) {
+    tier = res.hit.tier; name = res.hit.name;
+    pts = TIER_POINTS[tier] + Math.round(SPEED_BONUS * left / (ROUND_SECONDS * 1000));
+  } else if (mode === 'endless') lives--;
+  score += pts;
+  results.push({ id: current.id, q: current.q, answer: name, tier, pts });
+  idx++;
+  if (mode === 'daily') store.set('daily', { day: todayIndex(), results, done: false });
+
+  if (res) {
+    const col = getComputedStyle(document.documentElement).getPropertyValue('--t' + tier).trim();
+    flash(col);
+    floater('+' + pts, tier);
+    Scene.burst(10 + tier * 8);
+    Scene.sinkTo(depthFor(score));
+    rollScore();
+    if (tier >= 4) { document.body.classList.add('quake'); setTimeout(() => document.body.classList.remove('quake'), 520); }
+    if (tier === 5) { document.body.classList.add('abyss'); setTimeout(() => document.body.classList.remove('abyss'), 650); }
+  } else flash('#0b1a33');
+  renderHud();
+  renderReveal(results[results.length - 1], passed);
+}
+
+function renderReveal(r, passed) {
+  const p = current;
+  const sorted = p.answers.slice().sort((a, b) => a.tier - b.tier);
+  const others = sorted.filter(a => a.name !== r.answer);
+  const common = others.filter(a => a.tier <= 2).slice(0, 4);
+  const deepPick = shuffled(others.filter(a => a.tier >= 4)).slice(0, 4);
+  const last = mode === 'daily' ? idx >= queue.length : lives <= 0;
+  const card = $('card');
+  card.className = 'card';
+  card.innerHTML = `
+    <div class="label">${p.q.toUpperCase()}</div>
+    <div class="reveal">
+      ${r.answer
+        ? `<div class="word">${escapeHtml(r.answer)}</div>
+           <div class="pts t${r.tier}">+${r.pts}<small> PTS</small></div>
+           <span class="tier t${r.tier}">${TIER_NAMES[r.tier]}</span>
+           <div class="scale"><div class="steps">${[1, 2, 3, 4, 5].map(k => `<i style="--sc:var(--t${k})" data-k="${k}"></i>`).join('')}</div><div class="ends"><span>OBVIOUS</span><span>ABYSSAL</span></div></div>`
+        : `<div class="word miss">${passed ? 'PASSED' : "TIME'S UP"}</div>
+           <div class="got">${mode === 'endless' ? (lives > 0 ? `${lives} ${lives === 1 ? 'life' : 'lives'} left` : 'out of air!') : 'no points this time'}</div>`}
+      <div class="others">
+        ${common.length ? `<h4>MOST COMMON</h4><div class="row">${common.map((a, i) => `<span style="animation-delay:${.35 + i * .05}s">${a.name}</span>`).join('')}</div>` : ''}
+        ${deepPick.length ? `<h4>DEEP CUTS YOU COULD HAVE SAID</h4><div class="row deep">${deepPick.map((a, i) => `<span style="animation-delay:${.55 + i * .05}s">${a.name}</span>`).join('')}</div>` : ''}
+        <div class="count">${fmt(p.answers.length)} answers on the list</div>
+      </div>
+      <button class="next" type="button" id="nextBtn">${last ? '▲ SURFACE' : '▼ KEEP DIVING'}<kbd>ENTER</kbd></button>
+    </div>`;
+  if (r.answer) [...card.querySelectorAll('.steps i')].forEach(i => { if (+i.dataset.k <= r.tier) setTimeout(() => i.classList.add('on'), 250 + +i.dataset.k * 110); });
+  $('nextBtn').onclick = nextPrompt;
+  setTimeout(() => $('nextBtn') && $('nextBtn').focus(), 60);
+}
+
+// ---------- Results ----------
+function showResults() {
+  cancelAnimationFrame(raf); answered = true;
+  const total = results.reduce((s, r) => s + r.pts, 0);
+  if (mode === 'daily') {
+    const d = store.get('daily', null);
+    if (!d || !d.done) { store.set('daily', { day: todayIndex(), results, done: true }); recordDaily(total); }
+  } else {
+    if (total > store.get('endlessBest', 0)) store.set('endlessBest', total);
+  }
+  const maxDepth = depthFor(total);
+  const correct = results.filter(r => r.answer).length;
+  show('results');
+  $('scoreVal2').textContent = fmt(total);
+  $('report').className = 'card';
+  $('report').innerHTML = `
+    <div class="report-head">
+      <span class="label">${mode === 'daily' ? `SURFACE REPORT · DIVE #${todayIndex() + 1}` : 'ENDLESS DIVE · SURFACE REPORT'}</span>
+      <div class="zone-name">${zoneAt(maxDepth).toUpperCase()}</div>
+      <div class="bigs"><div><label>MAX DEPTH</label><b id="rDepth">-0 m</b></div><div><label>SCORE</label><b id="rScore">0</b></div></div>
+      <div class="emoji">${results.map(r => TIER_EMOJI[r.tier]).join('')}</div>
+      <div class="hint">${correct} of ${results.length} answered${mode === 'endless' ? ` · best ${fmt(store.get('endlessBest', 0))} pts` : ''}</div>
+    </div>
+    <ul class="rows">${results.map((r, i) => `
+      <li class="${r.tier ? 't' + r.tier : ''}" style="animation-delay:${.15 + i * .07}s"><span class="bar6"></span><span class="q">${r.q}</span>
+        <span class="a ${r.answer ? '' : 'miss'}">${r.answer ? escapeHtml(r.answer) : '—'}</span><span class="p">+${r.pts}</span></li>`).join('')}</ul>
+    <div class="actions">
+      ${mode === 'daily'
+        ? `<button class="descend" style="font-size:18px;padding:14px;letter-spacing:3px" id="shareBtn" type="button">SHARE</button><button class="alt" id="toEndless" type="button">ENDLESS DIVE</button>`
+        : `<button class="descend" style="font-size:18px;padding:14px;letter-spacing:3px" id="againBtn" type="button">DIVE AGAIN</button><button class="alt" id="toHome" type="button">SURFACE</button>`}
+    </div>
+    <div class="countdown" id="countdown"></div>`;
+  countUp($('rScore'), total, v => fmt(v));
+  countUp($('rDepth'), maxDepth, v => `-${fmt(v)} m`);
+  if ($('shareBtn')) $('shareBtn').onclick = () => share(total, maxDepth);
+  if ($('toEndless')) $('toEndless').onclick = startEndless;
+  if ($('againBtn')) $('againBtn').onclick = startEndless;
+  if ($('toHome')) $('toHome').onclick = renderHome;
+  if (mode === 'daily') runCountdown();
+}
+function countUp(el, to, f) {
+  const t0 = performance.now();
+  const step = now => {
+    const k = Math.min(1, (now - t0) / 1400);
+    el.textContent = f(Math.round(to * (1 - (1 - k) ** 3)));
+    if (k < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+function share(total, maxDepth) {
+  const text = `Deep Cut #${todayIndex() + 1} 🤿 -${fmt(maxDepth)} m · ${total} pts\n${results.map(r => TIER_EMOJI[r.tier]).join('')}`;
+  const done = () => toast('COPIED TO CLIPBOARD');
+  if (navigator.clipboard) navigator.clipboard.writeText(text).then(done, () => prompt('Copy your result:', text));
+  else prompt('Copy your result:', text);
+}
+let cdTimer;
+function runCountdown() {
+  clearInterval(cdTimer);
+  const tick = () => {
+    const now = new Date(), next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    const s = Math.max(0, Math.floor((next - now) / 1000));
+    const el = $('countdown'); if (!el) return clearInterval(cdTimer);
+    el.textContent = `next dive in ${String(Math.floor(s / 3600)).padStart(2, '0')}:${String(Math.floor(s / 60) % 60).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+    if (!s) { clearInterval(cdTimer); renderHome(); }
+  };
+  tick();
+  cdTimer = setInterval(tick, 1000);
+}
+
+// ---------- Stats ----------
+function recordDaily(total) {
+  const h = store.get('history', {});
+  h[todayIndex()] = total;
+  store.set('history', h);
+}
+function stats() {
+  const h = store.get('history', {});
+  const days = Object.keys(h).map(Number).sort((a, b) => a - b);
+  const scores = days.map(d => h[d]);
+  // A streak survives until the end of today, so start from yesterday if today isn't played yet.
+  let streak = 0, d = todayIndex();
+  if (h[d] == null) d--;
+  while (h[d] != null) { streak++; d--; }
+  let best = 0, run = 0;
+  days.forEach((d, i) => { run = i && d === days[i - 1] + 1 ? run + 1 : 1; best = Math.max(best, run); });
+  return {
+    played: days.length, streak, maxStreak: best,
+    avg: scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0,
+    top: scores.length ? Math.max(...scores) : 0,
+  };
+}
+function openStats() {
+  const s = stats();
+  $('statsBody').innerHTML = [['DIVES', s.played], ['AVERAGE', s.avg], ['BEST', s.top], ['STREAK', s.streak]]
+    .map(([k, v]) => `<div><b>${v}</b><span>${k}</span></div>`).join('');
+  $('statsExtra').textContent = `deepest daily: -${fmt(depthFor(s.top))} m · longest streak ${s.maxStreak} · endless best ${store.get('endlessBest', 0)}`;
+  $('statsDlg').showModal();
+}
+
+// ---------- Wiring ----------
+$('dailyBtn').onclick = startDaily;
+$('endlessBtn').onclick = startEndless;
+$('howBtn').onclick = () => $('helpDlg').showModal();
+$('homeBtn').onclick = () => {
+  if (!$('play').hidden && mode === 'endless' && results.length && !confirm('Surface now? This dive will end.')) return;
+  renderHome();
+};
+$('helpBtn').onclick = () => $('helpDlg').showModal();
+$('statsBtn').onclick = openStats;
+$('answerForm').onsubmit = e => { e.preventDefault(); submitGuess(); };
+$('passBtn').onclick = () => finishPrompt(null, true);
+for (const b of document.querySelectorAll('[data-close]')) b.onclick = () => b.closest('dialog').close();
+for (const d of document.querySelectorAll('dialog')) d.addEventListener('click', e => { if (e.target === d) d.close(); });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && answered && !$('play').hidden && $('nextBtn') && document.activeElement !== $('nextBtn') && !document.querySelector('dialog[open]')) {
+    e.preventDefault(); nextPrompt();
+  }
+});
+
+renderHome();
+Scene.sinkTo(0, true);
+if (!store.get('seenHelp', false)) { store.set('seenHelp', true); setTimeout(() => $('helpDlg').showModal(), 600); }
+</script>
+</body>
+</html>
