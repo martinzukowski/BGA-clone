@@ -1,0 +1,756 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chaindle · Brain Games</title>
+<meta name="description" content="Link the words with one word of your own. The stronger the connection to each word, the longer its chain grows.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800;900&family=Newsreader:ital,opsz,wght@0,6..72,400;1,6..72,400;1,6..72,500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/brain.css">
+<style>
+  :root {
+    --paper: #f6f5f2;
+    --card: #fbfbf9;
+    --ink: #1f2a30;
+    --soft: #5d6970;
+    --rule: #dcdcd6;
+    --steel: #8e99a3;
+    --steel-hi: #dfe4e8;
+    --steel-lo: #5f6b75;
+    --gold: #c9871d;
+    --gold-hi: #f2c062;
+    --red: #c2453b;
+    --serif: Newsreader, Georgia, "Times New Roman", serif;
+    --sans: Archivo, system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  body { background: var(--paper); color: var(--ink); font-family: var(--sans); }
+  button { font-family: var(--sans); }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 0 16px 48px; }
+
+  /* ---------- Top ---------- */
+  .top { display: flex; align-items: center; gap: 8px; padding: 14px 0 4px; }
+  .top .spacer { flex: 1; }
+  .logo { display: block; width: min(280px, 58vw); height: auto; }
+  .tabs { display: flex; gap: 4px; justify-content: center; margin: 10px 0 2px; }
+  .tabs button { border-radius: 999px; padding: 5px 14px; font-weight: 700; font-size: 14px; background: transparent; border-color: var(--rule); color: var(--soft); }
+  .tabs button.on { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+  .dateline { text-align: center; color: var(--soft); font-size: 13px; margin-top: 8px; }
+
+  /* ---------- Round ---------- */
+  .pips { display: flex; justify-content: center; gap: 6px; margin: 14px 0 6px; }
+  .pips i { width: 34px; height: 6px; border-radius: 3px; background: var(--rule); transition: background .3s; }
+  .pips i.cur { background: var(--ink); }
+  .pips i.done { background: var(--gold); }
+  .pips i.zero { background: var(--red); }
+  .ask { text-align: center; font-family: var(--serif); font-style: italic; font-size: 19px; color: var(--soft); margin: 6px 0 4px; }
+  .stage { position: relative; }
+  .stage svg { display: block; width: 100%; height: auto; overflow: visible; }
+  .stage.shake { animation: shake .45s; }
+
+  .card-r { fill: var(--card); stroke: var(--rule); stroke-width: 1.5; filter: url(#lift); }
+  .card-t { font-family: var(--sans); font-weight: 800; fill: var(--ink); letter-spacing: -.5px; }
+  .slot-r { fill: none; stroke: var(--steel); stroke-width: 2; stroke-dasharray: 7 7; }
+  .slot-r.set { stroke: var(--gold); stroke-dasharray: none; fill: #fffaf0; }
+  .ans-t { font-family: var(--serif); font-style: italic; fill: var(--ink); }
+  .ans-t.ghost { fill: #a3acb3; }
+  .gap { fill: none; stroke: #9aa3ab; stroke-width: 1.6; stroke-dasharray: 2 5; stroke-linecap: round; opacity: 0; transition: opacity .4s .3s; }
+  .gap.on { opacity: 1; }
+
+  .lnk { transform-box: fill-box; transform-origin: center; }
+  .lnk.pop { animation: linkIn .34s cubic-bezier(.2, 1.4, .4, 1) both; }
+  @keyframes linkIn { 0% { transform: scale(0) rotate(-50deg); opacity: 0; } 55% { transform: scale(1.4) rotate(8deg); opacity: 1; } 75% { transform: scale(.88) rotate(-3deg); } 100% { transform: none; } }
+  .lnk.flash { animation: goldFlash .7s ease-out; }
+  @keyframes goldFlash { 30% { transform: scale(1.5); filter: drop-shadow(0 0 8px #f2c062) brightness(1.4); } }
+  .stage.bump { animation: bump .35s ease-out; }
+  @keyframes bump { 30% { transform: translateY(3px) scale(1.01); } }
+  .spark { fill: #f2c062; transform-box: fill-box; transform-origin: center; animation: spark .7s ease-out forwards; }
+  @keyframes spark { from { transform: scale(.2); opacity: 1; } to { transform: translate(var(--dx), var(--dy)) scale(1.6); opacity: 0; } }
+  .ring { fill: none; stroke: url(#steel); stroke-width: 4.2; }
+  .bar { fill: url(#steelBar); }
+  .ring.gold { stroke: url(#gold); } .bar.gold { fill: url(#goldBar); }
+  .snap .ring, .snap .bar { animation: snapRed .6s; }
+  @keyframes snapRed { 30% { stroke: var(--red); fill: var(--red); } }
+
+  /* ---------- Entry ---------- */
+  .entry { display: flex; gap: 8px; max-width: 480px; margin: 8px auto 0; }
+  .entry input[type=text] { font-family: var(--serif); font-style: italic; font-size: 22px; font-weight: 400; background: #fff; border-color: var(--rule); border-radius: 12px; padding: 10px 14px; }
+  .entry input[type=text]:focus { border-color: var(--ink); box-shadow: 0 0 0 4px rgba(31,42,48,.08); }
+  .entry button { background: var(--ink); border-color: var(--ink); color: var(--paper); border-radius: 12px; padding: 0 20px; font-weight: 800; font-size: 16px; }
+  .entry button:hover:not(:disabled) { box-shadow: 0 4px 14px rgba(31,42,48,.25); border-color: var(--ink); }
+  .hint1 { text-align: center; margin-top: 10px; font-size: 13px; color: var(--soft); font-weight: 600; }
+  .note { text-align: center; min-height: 1.4em; margin-top: 4px; font-weight: 700; font-size: 14px; color: var(--red); }
+
+  /* ---------- Round result ---------- */
+  .verdict { text-align: center; margin-top: 4px; animation: rise .35s ease-out both; }
+  .verdict .pts { font-size: 54px; font-weight: 900; letter-spacing: -1.5px; line-height: 1; }
+  .verdict .pts small { font-size: 16px; color: var(--soft); font-weight: 600; letter-spacing: 0; }
+  .verdict .line { font-family: var(--serif); font-style: italic; font-size: 18px; color: var(--soft); margin-top: 4px; }
+  .verdict .per { display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; margin-top: 8px; font-size: 13px; color: var(--soft); font-weight: 600; }
+  .verdict .per b { color: var(--ink); }
+  .verdict .best { margin-top: 12px; font-weight: 700; font-size: 16px; }
+  .verdict .best i { font-family: var(--serif); font-size: 19px; font-weight: 500; color: var(--gold); }
+  .alts { max-width: 520px; margin: 14px auto 0; border-top: 1px solid var(--rule); padding-top: 12px; text-align: left; }
+  .alts h4 { margin: 0 0 6px; font-size: 11px; letter-spacing: 1.4px; text-transform: uppercase; color: var(--soft); }
+  .alts .row { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-bottom: 10px; font-family: var(--serif); font-style: italic; font-size: 18px; }
+  .alts .row span em { font-family: var(--sans); font-style: normal; font-size: 12px; color: var(--gold); margin-left: 3px; font-weight: 800; }
+  .nextBtn { display: block; margin: 12px auto 0; background: var(--ink); color: var(--paper); border-color: var(--ink); padding: 12px 30px; border-radius: 999px; font-weight: 800; font-size: 16px; }
+
+  /* ---------- Summary ---------- */
+  .sum { text-align: center; padding-top: 6px; }
+  .sum .big { font-size: clamp(64px, 16vw, 92px); font-weight: 900; letter-spacing: -3px; line-height: 1; margin-top: 4px; }
+  .sum .big small { font-size: 16px; letter-spacing: 0; font-weight: 600; color: var(--soft); }
+  .sum .tag { font-family: var(--serif); font-style: italic; font-size: 19px; color: var(--soft); margin-top: 8px; }
+  .curve { max-width: 620px; margin: 18px auto 0; }
+  .curve svg { width: 100%; height: auto; display: block; }
+  .curve p { font-family: var(--serif); font-size: 17px; color: var(--soft); margin: 8px 0 0; }
+  .curve p b { font-family: var(--sans); color: var(--ink); }
+  .rows { list-style: none; padding: 0; margin: 22px auto 0; max-width: 680px; text-align: left; }
+  .rows li { display: grid; grid-template-columns: 1fr auto 64px; align-items: center; gap: 12px; padding: 12px 2px; border-top: 1px solid var(--rule); animation: rise .35s ease-out both; }
+  .rows li:last-child { border-bottom: 1px solid var(--rule); }
+  .rows .w { font-weight: 700; font-size: 16px; }
+  .rows .a { font-family: var(--serif); font-style: italic; color: var(--soft); font-size: 16px; }
+  .rows .a.none { color: var(--red); }
+  .rows .b { font-size: 13px; color: var(--soft); }
+  .rows .b i { font-family: var(--serif); }
+  .rows .mini { width: 170px; height: auto; }
+  .rows .p { text-align: right; font-weight: 800; font-size: 18px; }
+  .actions { display: flex; justify-content: center; gap: 10px; margin-top: 22px; flex-wrap: wrap; }
+  .actions button { border-radius: 999px; padding: 11px 24px; font-weight: 800; }
+  .actions .main { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .countdown { color: var(--soft); font-size: 14px; margin-top: 14px; }
+
+  dialog { font-family: var(--sans); background: var(--paper); }
+  dialog p, dialog li { font-family: var(--serif); font-size: 17px; line-height: 1.45; }
+  dialog i { color: var(--soft); }
+  .stats div { background: #fff; }
+  @media (max-width: 560px) {
+    .rows li { grid-template-columns: 1fr 52px; }
+    .rows .mini { grid-column: 1 / 3; grid-row: 2; width: 100%; max-width: 240px; }
+    .rows .p { grid-column: 2; grid-row: 1; }
+    .verdict .pts { font-size: 44px; }
+  }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="steel" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#dfe4e8"/><stop offset=".45" stop-color="#9aa5ae"/><stop offset="1" stop-color="#56626c"/></linearGradient>
+    <linearGradient id="steelBar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c9d0d6"/><stop offset=".5" stop-color="#7d8892"/><stop offset="1" stop-color="#4d5963"/></linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe3a0"/><stop offset=".45" stop-color="#d79a2c"/><stop offset="1" stop-color="#8f5a0c"/></linearGradient>
+    <linearGradient id="goldBar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f6cf74"/><stop offset=".5" stop-color="#c9871d"/><stop offset="1" stop-color="#7c4c08"/></linearGradient>
+    <filter id="lift" x="-10%" y="-20%" width="120%" height="160%"><feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#1f2a30" flood-opacity=".08"/></filter>
+  </defs>
+</svg>
+
+<div class="wrap">
+  <div class="top">
+    <div class="spacer"></div>
+    <svg class="logo" id="logo" viewBox="0 0 560 120" role="img" aria-label="Chaindle"></svg>
+    <div class="spacer" style="display:flex;justify-content:flex-end;gap:6px">
+      <button class="icon ghost" id="soundBtn" type="button" title="Sound on/off">🔊</button>
+      <button class="icon ghost" id="helpBtn" type="button" title="How to play">?</button>
+      <button class="icon ghost" id="statsBtn" type="button" title="Statistics">📊</button>
+    </div>
+  </div>
+  <div class="tabs" role="tablist">
+    <button type="button" id="dailyTab" class="on" role="tab">Daily</button>
+    <button type="button" id="practiceTab" role="tab">Practice</button>
+  </div>
+  <div class="dateline" id="dateline"></div>
+
+  <section id="play">
+    <div class="pips" id="pips"></div>
+    <div class="ask" id="ask"></div>
+    <div class="stage" id="stage"></div>
+    <form class="entry" id="entry" autocomplete="off">
+      <input type="text" id="guess" placeholder="your word…" autocapitalize="off" spellcheck="false" enterkeyhint="go" aria-label="Your linking word" maxlength="40">
+      <button type="submit" id="linkBtn">Link</button>
+    </form>
+    <div class="hint1" id="hint1">One guess per round, so make it count.</div>
+    <div class="note" id="note"></div>
+    <div id="after"></div>
+  </section>
+
+  <section id="summary" class="sum" hidden></section>
+</div>
+
+<dialog id="helpDlg">
+  <div class="dlgHead"><b>How to play</b><button type="button" class="icon ghost" data-close>✕</button></div>
+  <p>Find a word that links to the words you're given. Each word grows a chain toward yours: <b>the stronger the connection, the longer the chain</b>. Join them all the way for full marks.</p>
+  <ol>
+    <li><b>Rounds 1–3:</b> two words. <i>pizza + pasta → tomato</i></li>
+    <li><b>Round 4:</b> three words, one link for all of them. <i>car + wheel + human → driver</i></li>
+    <li><b>Round 5:</b> one word, type its closest relative. <i>video → footage</i></li>
+  </ol>
+  <p>You get <b>one guess per round</b>. Each round is worth up to <b>1,000</b> points, 5,000 in all. A word we can't link to scores 0 for that round. Typos and plurals are forgiven.</p>
+  <p style="color:var(--soft)">The daily puzzle is the same for everyone and changes at midnight. Want more? <b>Practice</b> deals five fresh rounds every time you replay.</p>
+</dialog>
+
+<dialog id="statsDlg">
+  <div class="dlgHead"><b>Statistics</b><button type="button" class="icon ghost" data-close>✕</button></div>
+  <div class="stats" id="statsBody"></div>
+  <p id="statsExtra" style="text-align:center;color:var(--soft);margin:0"></p>
+</dialog>
+<div class="toast" id="toast"></div>
+
+<script src="../shared/brain.js"></script>
+<script src="data/puzzles.js"></script>
+<script>
+const ROUND_MAX = 1000;
+const LINK_VALUE = [0, .1, .28, .5, .75, 1];   // share of a word's points for 1–5 links
+const ROUND_KINDS = ['pairs', 'pairs', 'pairs', 'triples', 'singles'];
+const FIRST_DAY = dayNumber(new Date(2026, 9, 20));   // Chaindle #1
+const store = makeStore('chaindle:');
+const SVGNS = 'http://www.w3.org/2000/svg';
+
+// ---------- Matching ----------
+const norm = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+  .replace(/&/g, ' and ').replace(/['’`.!]/g, '').replace(/[^a-z0-9]+/g, ' ').trim().replace(/^(the|a|an|to) /, '');
+const squash = s => norm(s).replace(/ /g, '');
+const singular = s => s.length > 4 && s.endsWith('ies') ? s.slice(0, -3) + 'y'
+  : s.length > 4 && /(ches|shes|xes|ses|zes)$/.test(s) ? s.slice(0, -2)
+  : s.length > 3 && s.endsWith('s') && !s.endsWith('ss') ? s.slice(0, -1) : s;
+
+// Edit distance where swapping two neighbouring letters counts as one typo; gives up past `max`.
+function lev(a, b, max) {
+  if (Math.abs(a.length - b.length) > max) return max + 1;
+  let prev2 = null, prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i];
+    let best = i;
+    for (let j = 1; j <= b.length; j++) {
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      if (prev2 && i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) cur[j] = Math.min(cur[j], prev2[j - 2] + 1);
+      best = Math.min(best, cur[j]);
+    }
+    if (best > max) return max + 1;
+    prev2 = prev; prev = cur;
+  }
+  return prev[b.length];
+}
+
+// An answer is "Word/Alias=5,3": one strength (1–5) per shown word, in order. A single number applies to all.
+function parse(p, kind, i) {
+  const n = p.w.length, answers = [], exact = new Map();
+  for (const entry of p.a.split(';').map(x => x.trim()).filter(Boolean)) {
+    const [names, l] = entry.split('=');
+    const all = names.split('/').map(x => x.trim()).filter(Boolean);
+    let links = String(l || '1').split(',').map(x => Math.min(5, Math.max(1, +x || 1)));
+    if (links.length !== n) links = Array(n).fill(links[0]);
+    const a = { name: all[0], keys: all.map(squash), links, sum: links.reduce((s, x) => s + x, 0) };
+    answers.push(a);
+    for (const k of a.keys) {
+      if (!exact.has(k)) exact.set(k, a);
+      if (!exact.has(singular(k))) exact.set(singular(k), a);
+    }
+  }
+  // Lists are written strongest first, so among answers with the same link strengths an earlier one
+  // is the better fit: it keeps full marks and each later one loses a little (at most 20%).
+  const seen = new Map();
+  for (const a of answers) {
+    const key = a.links.join(','), rank = seen.get(key) || 0;
+    seen.set(key, rank + 1);
+    a.pts = Math.round(ROUND_MAX * a.links.reduce((s, l) => s + LINK_VALUE[l], 0) / n * (1 - Math.min(.2, rank * .025)));
+  }
+  answers.sort((x, y) => y.pts - x.pts);
+  return { id: `${kind}:${i}`, kind, words: p.w, answers, exact, shown: new Set(p.w.flatMap(w => [squash(w), singular(squash(w))])) };
+}
+const POOLS = Object.fromEntries(['pairs', 'triples', 'singles'].map(k => [k, (window.CHAINDLE?.[k] || []).map((p, i) => parse(p, k, i))]));
+const byId = id => { const [k, i] = id.split(':'); return POOLS[k][+i]; };
+
+function judge(puzzle, guess) {
+  const k = squash(guess);
+  if (!k) return null;
+  const hit = puzzle.exact.get(k) || puzzle.exact.get(singular(k));
+  if (hit) return hit;
+  const max = k.length >= 9 ? 2 : k.length >= 5 ? 1 : 0;
+  if (!max) return null;
+  let best = null, bestD = max + 1;
+  for (const a of puzzle.answers) for (const key of a.keys) {
+    if (key.length < 4) continue;
+    const d = Math.min(lev(k, key, max), lev(singular(k), key, max));
+    if (d < bestD) { bestD = d; best = a; }
+  }
+  return best;
+}
+const scoreFor = a => a.pts;
+
+// ---------- Which puzzles today ----------
+// Each pool is shuffled once with a fixed seed and dealt out in order, so nothing repeats until a pool runs out.
+const ORDER = Object.fromEntries(Object.entries(POOLS).map(([k, list], n) => [k, shuffled(list.map(p => p.id), seeded(20261020 + n))]));
+const todayIndex = () => dayNumber() - FIRST_DAY;
+function dailyIds(d = Math.max(0, todayIndex())) {
+  const per = { pairs: 3, triples: 1, singles: 1 }, used = { pairs: 0, triples: 0, singles: 0 };
+  return ROUND_KINDS.map(k => ORDER[k][(d * per[k] + used[k]++) % ORDER[k].length]);
+}
+function practiceIds() {
+  const avoid = new Set(dailyIds()), recent = new Set(store.get('recent', []));
+  const pick = (k, n) => {
+    let pool = POOLS[k].map(p => p.id).filter(id => !avoid.has(id) && !recent.has(id));
+    if (pool.length < n) pool = POOLS[k].map(p => p.id).filter(id => !avoid.has(id));
+    return shuffled(pool).slice(0, n);
+  };
+  const ids = [...pick('pairs', 3), ...pick('triples', 1), ...pick('singles', 1)];
+  store.set('recent', [...ids, ...recent].slice(0, 150));
+  return ids;
+}
+
+// ---------- Sound and feel ----------
+// Small synthesized sounds (no files): a metallic clink per link, a thud for a miss, a chime when a chain joins.
+let soundOn = store.get('sound', true), actx = null;
+function audio() {
+  if (!soundOn) return null;
+  try { actx ||= new (window.AudioContext || window.webkitAudioContext)(); if (actx.state === 'suspended') actx.resume(); return actx; } catch { return null; }
+}
+function tone(freq, dur, type = 'sine', vol = .08, when = 0, slide = 0) {
+  const a = audio(); if (!a) return;
+  const t = a.currentTime + when, o = a.createOscillator(), g = a.createGain();
+  o.type = type; o.frequency.setValueAtTime(freq, t);
+  if (slide) o.frequency.exponentialRampToValueAtTime(freq * slide, t + dur);
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+  o.connect(g).connect(a.destination); o.start(t); o.stop(t + dur + .02);
+}
+const sfx = {
+  clink(i) { const f = 900 + i * 55; tone(f, .09, 'triangle', .07); tone(f * 2.76, .05, 'sine', .03); },
+  thud() { tone(140, .22, 'sine', .14, 0, .5); tone(90, .3, 'triangle', .06, .02, .6); },
+  join() { [660, 880, 1320].forEach((f, i) => tone(f, .35, 'sine', .07, i * .07)); },
+  tick() { tone(1500, .02, 'square', .015); },
+};
+// A quick downward jolt through a whole chain, as if a link just clanked onto it.
+function jolt(node, px = 2.4) {
+  node.animate?.([{ transform: 'translateY(0)' }, { transform: `translateY(${px}px)` }, { transform: 'translateY(-1px)' }, { transform: 'translateY(0)' }], { duration: 160, easing: 'ease-out' });
+}
+function sparks(svg, x, y) {
+  for (let i = 0; i < 10; i++) {
+    const a = i / 10 * Math.PI * 2, c = el('circle', { cx: x, cy: y, r: 3, class: 'spark' }, svg);
+    c.style.setProperty('--dx', `${(Math.cos(a) * 16).toFixed(1)}px`); c.style.setProperty('--dy', `${(Math.sin(a) * 16).toFixed(1)}px`);
+    setTimeout(() => c.remove(), 800);
+  }
+}
+
+// ---------- Chain drawing ----------
+// A gently sagging curve (quadratic Bézier) from p0 to p1, sampled so links can be spaced evenly along it.
+function curve(p0, p1, sag) {
+  const mx = (p0[0] + p1[0]) / 2, my = (p0[1] + p1[1]) / 2;
+  const dx = p1[0] - p0[0], dy = p1[1] - p0[1], L = Math.hypot(dx, dy) || 1;
+  let nx = -dy / L, ny = dx / L;
+  if (ny < 0) { nx = -nx; ny = -ny; }                       // always sag downward
+  const c = [mx + nx * sag * 2, my + ny * sag * 2];
+  const pt = t => [(1 - t) ** 2 * p0[0] + 2 * (1 - t) * t * c[0] + t * t * p1[0], (1 - t) ** 2 * p0[1] + 2 * (1 - t) * t * c[1] + t * t * p1[1]];
+  const N = 120, pts = [pt(0)], acc = [0];
+  for (let i = 1; i <= N; i++) { pts.push(pt(i / N)); acc.push(acc[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1])); }
+  const len = acc[N];
+  const at = s => {                                           // point + angle at distance s along the curve
+    s = Math.max(0, Math.min(len, s));
+    let i = 1; while (i < N && acc[i] < s) i++;
+    const f = (s - acc[i - 1]) / ((acc[i] - acc[i - 1]) || 1);
+    const x = pts[i - 1][0] + f * (pts[i][0] - pts[i - 1][0]), y = pts[i - 1][1] + f * (pts[i][1] - pts[i - 1][1]);
+    return { x, y, ang: Math.atan2(pts[i][1] - pts[i - 1][1], pts[i][0] - pts[i - 1][0]) * 180 / Math.PI };
+  };
+  return { len, at, d: `M${p0[0]},${p0[1]} Q${c[0]},${c[1]} ${p1[0]},${p1[1]}` };
+}
+
+const el = (tag, attrs = {}, parent) => {
+  const e = document.createElementNS(SVGNS, tag);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+  if (parent) parent.append(e);
+  return e;
+};
+
+// Draws a chain along a curve. `from` lists how many link slots to fill from each end ([start, end]);
+// filled links pop in one by one; the unfilled middle shows as a faint dotted gap.
+function drawChain(svg, c, fromStart, fromEnd, { pitch = 21, size = 1, delay = 0, step = 70, gold = false, goldEnd = false } = {}) {
+  const slots = Math.max(2, Math.floor(c.len / pitch));
+  const sp = c.len / slots;
+  const a = Math.min(slots, fromStart), b = Math.min(slots - a, fromEnd);
+  const g = el('g', {}, svg);
+  if (a + b < slots) {
+    const s0 = a * sp, s1 = (slots - b) * sp, n = 24, pts = [];
+    for (let i = 0; i <= n; i++) { const p = c.at(s0 + (s1 - s0) * i / n); pts.push(`${p.x.toFixed(1)},${p.y.toFixed(1)}`); }
+    const gap = el('polyline', { points: pts.join(' '), class: 'gap' }, g);
+    setTimeout(() => gap.classList.add('on'), delay + Math.max(a, b) * step);
+  }
+  const place = (k, order) => {
+    const p = c.at((k + 0.5) * sp);
+    const lg = el('g', { transform: `translate(${p.x.toFixed(1)} ${p.y.toFixed(1)}) rotate(${p.ang.toFixed(1)})` }, g);
+    const inner = el('g', { class: 'lnk' + (delay >= 0 ? ' pop' : '') }, lg);
+    if (delay >= 0) {
+      inner.style.animationDelay = `${delay + order * step}ms`;
+      if (k % 2 === 0) setTimeout(() => { jolt(g); sfx.clink(order); }, delay + order * step + 120);
+    }
+    const isGold = gold && a + b === slots && (goldEnd ? k >= slots - 2 : k === Math.floor((slots - 1) / 2) || k === Math.ceil((slots - 1) / 2));
+    const w = sp * 1.32, h = 13 * size;
+    if (isGold) inner.dataset.gold = '1';
+    if (k % 2 === 0) el('rect', { x: -w / 2, y: -h / 2, width: w, height: h, rx: h / 2, class: 'ring' + (isGold ? ' gold' : '') }, inner);
+    else el('rect', { x: -w / 2, y: -2.6 * size, width: w, height: 5.2 * size, rx: 2.6 * size, class: 'bar' + (isGold ? ' gold' : '') }, inner);
+  };
+  // Draw edge-on bars first so the rings sit on top of them.
+  const order = [];
+  for (let k = 0; k < a; k++) order.push([k, k]);
+  for (let k = 0; k < b; k++) order.push([slots - 1 - k, k]);
+  order.filter(([k]) => k % 2).forEach(([k, o]) => place(k, o));
+  order.filter(([k]) => !(k % 2)).forEach(([k, o]) => place(k, o));
+  const doneAt = delay + Math.max(a, b) * step + 160;
+  if (delay >= 0 && a + b === slots && gold) {
+    // The chain is whole: flash the gold links, ring a chime and throw a few sparks.
+    setTimeout(() => {
+      g.querySelectorAll('[data-gold]').forEach(n => { n.classList.remove('pop'); void n.getBBox(); n.classList.add('flash'); });
+      const m = c.at(c.len / 2); sparks(svg, m.x, m.y); sfx.join();
+      const st = $('stage'); st.classList.remove('bump'); void st.offsetWidth; st.classList.add('bump');
+    }, doneAt);
+  }
+  return { slots, doneAt };
+}
+
+function fitText(text, maxW, maxSize) {
+  return Math.max(16, Math.min(maxSize, maxW / (0.6 * Math.max(3, text.length))));
+}
+function card(svg, x, y, w, h, text, size = 44) {
+  el('rect', { x, y, width: w, height: h, rx: 10, class: 'card-r' }, svg);
+  const t = el('text', { x: x + w / 2, y: y + h / 2 + 1, 'text-anchor': 'middle', 'dominant-baseline': 'middle', class: 'card-t', 'font-size': fitText(text, w - 30, size) }, svg);
+  t.textContent = text.toLowerCase();
+  return t;
+}
+
+// The logo: "chain" and "le" cards joined by a sagging chain with a gold link in the middle.
+function drawLogo() {
+  const svg = $('logo');
+  card(svg, 6, 14, 168, 82, 'chain', 46);
+  card(svg, 386, 14, 168, 82, 'le', 46);
+  const c = curve([172, 52], [388, 52], 12);
+  drawChain(svg, c, 99, 99, { pitch: 19, size: .9, delay: -1, gold: true });
+}
+
+// ---------- Board for one round ----------
+// Lays the round out in an SVG; returns anchors for chains and a setter for the answer label.
+function board(p) {
+  const stage = $('stage');
+  stage.innerHTML = '';
+  const n = p.words.length;
+  if (n === 3) {
+    const svg = el('svg', { viewBox: '0 0 800 360' }, stage);
+    const xs = [20, 290, 560];
+    xs.forEach((x, i) => card(svg, x, 20, 220, 92, p.words[i], 40));
+    const hub = el('rect', { x: 250, y: 262, width: 300, height: 76, rx: 38, class: 'slot-r' }, svg);
+    const label = el('text', { x: 400, y: 301, 'text-anchor': 'middle', 'dominant-baseline': 'middle', class: 'ans-t ghost', 'font-size': 36 }, svg);
+    label.textContent = '?';
+    const ends = xs.map((x, i) => curve([x + 110, 112], [[300, 400, 500][i], 262], i === 1 ? 0 : 10));
+    ends.forEach(c => el('path', { d: c.d, class: 'gap on' }, svg));
+    return { svg, n, ends, oneSided: true, label, hub };
+  }
+  const svg = el('svg', { viewBox: '0 0 800 230' }, stage);
+  card(svg, 10, 30, 230, 96, p.words[0], 44);
+  let hub, label;
+  if (n === 2) {
+    card(svg, 560, 30, 230, 96, p.words[1], 44);
+    label = el('text', { x: 400, y: 200, 'text-anchor': 'middle', 'dominant-baseline': 'middle', class: 'ans-t ghost', 'font-size': 38 }, svg);
+  } else {
+    hub = el('rect', { x: 560, y: 30, width: 230, height: 96, rx: 10, class: 'slot-r' }, svg);
+    label = el('text', { x: 675, y: 79, 'text-anchor': 'middle', 'dominant-baseline': 'middle', class: 'ans-t ghost', 'font-size': 38 }, svg);
+  }
+  label.textContent = '?';
+  const span = curve([238, 78], [562, 78], 30);
+  el('path', { d: span.d, class: 'gap on' }, svg);
+  return { svg, n, ends: [span], oneSided: false, label, hub };
+}
+
+// Fill the chains for an answer's per-word strengths (1–5). Two-sided chains grow from both cards
+// and meet in the middle only when both links are perfect.
+function linkUp(b, links, delay = 150) {
+  if (b.oneSided) {
+    b.ends.forEach((c, i) => {
+      const slots = Math.max(2, Math.floor(c.len / 21));
+      drawChain(b.svg, c, Math.round(slots * links[i] / 5), 0, { delay: delay + i * 120, gold: links[i] === 5, goldEnd: true });
+    });
+  } else {
+    const c = b.ends[0], slots = Math.max(2, Math.floor(c.len / 21)), half = slots / 2;
+    const l = links.length === 2 ? links : [links[0], links[0]];
+    drawChain(b.svg, c, Math.round(half * l[0] / 5), Math.round(half * l[1] / 5), { delay, gold: true });
+  }
+}
+
+function setLabel(b, text, state) {
+  b.label.textContent = text || '?';
+  b.label.setAttribute('class', 'ans-t' + (state === 'ghost' || !text ? ' ghost' : ''));
+  b.label.setAttribute('font-size', fitText(text || '?', b.n === 3 ? 270 : 260, 38));
+  if (b.hub) b.hub.setAttribute('class', 'slot-r' + (state === 'set' ? ' set' : ''));
+}
+
+// ---------- State ----------
+let mode = 'daily', ids = [], results = [], round = 0, locked = false, B = null;
+const fmt = n => n.toLocaleString('en-US');
+const escapeHtml = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+const ASK = { pairs: 'Find a word that links both', triples: 'Find one word that links all three', singles: 'Type its closest relative' };
+const ROUND_LINES = [[950, 'A perfect link.'], [800, 'Forged in steel.'], [600, 'Holding firm.'], [400, 'Some slack in the span.'], [200, 'Barely hanging on.'], [1, 'A thread, not a chain.'], [0, 'The chain snapped.']];
+const DAY_LINES = [[4500, 'Unbreakable.'], [3800, 'Tempered steel.'], [3000, 'Strong links all round.'], [2200, 'Slack in every span.'], [1200, 'A few weak links.'], [0, 'Rusty today.']];
+const lineFor = (table, v) => table.find(([t]) => v >= t)[1];
+const PRAISE = [[900, 'Great guess!'], [700, 'Nice guess!'], [500, 'Good guess.'], [300, 'OK guess.'], [0, 'Bit of a stretch.']];
+// "Nice guess! Our best answer was plant." (or a pat on the back when they found it).
+function bestLine(hit, best, raw, guess) {
+  const b = `<i>${escapeHtml(best.name.toLowerCase())}</i>`;
+  if (!hit) return `We couldn't find a link for "${escapeHtml(guess.toLowerCase())}". Our best answer was ${b}.`;
+  if (hit === best || raw >= scoreFor(best, best.links.length)) return `Spot on, that's our best answer!`;
+  return `${lineFor(PRAISE, raw)} Our best answer was ${b}.`;
+}
+
+function saveDaily() { if (mode === 'daily') store.set('daily', { day: todayIndex(), results }); }
+
+function paintTop() {
+  $('dailyTab').classList.toggle('on', mode === 'daily');
+  $('practiceTab').classList.toggle('on', mode === 'practice');
+  const d = new Date();
+  $('dateline').textContent = mode === 'daily'
+    ? `${d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}, puzzle ${todayIndex() + 1}`
+    : 'Practice · fresh words every game';
+}
+function startDaily() {
+  mode = 'daily';
+  ids = dailyIds();
+  const d = store.get('daily', null);
+  results = d && d.day === todayIndex() ? d.results : [];
+  paintTop();
+  if (results.length >= ids.length) return showSummary();
+  round = results.length;
+  showRound();
+}
+function startPractice() {
+  mode = 'practice';
+  ids = practiceIds();
+  results = []; round = 0;
+  paintTop();
+  showRound();
+}
+
+function paintPips() {
+  $('pips').innerHTML = ids.map((_, i) => {
+    const r = results[i];
+    return `<i class="${r ? (r.pts ? 'done' : 'zero') : i === round ? 'cur' : ''}"></i>`;
+  }).join('');
+}
+
+function showRound() {
+  const p = byId(ids[round]);
+  locked = false;
+  $('summary').hidden = true; $('play').hidden = false;
+  paintPips();
+  $('ask').textContent = `Round ${round + 1} · ${ASK[p.kind]}`;
+  B = board(p);
+  $('after').innerHTML = '';
+  $('note').textContent = '';
+  const input = $('guess');
+  input.value = ''; input.disabled = false; $('linkBtn').disabled = false;
+  input.placeholder = p.kind === 'singles' ? 'its closest relative…' : 'your word…';
+  $('entry').hidden = false; $('hint1').hidden = false;
+  setTimeout(() => input.focus(), 30);
+}
+
+// One guess per round: whatever you link is final.
+function submit() {
+  if (locked) return;
+  const p = byId(ids[round]);
+  const input = $('guess'), guess = input.value.trim();
+  if (!guess) return;
+  const k = squash(guess);
+  if (p.shown.has(k) || p.shown.has(singular(k))) { $('note').textContent = "That's one of the given words. Try another!"; input.select(); return; }
+  finish(judge(p, guess), guess);
+}
+
+function finish(hit, guess) {
+  locked = true;
+  const p = byId(ids[round]);
+  const pts = hit ? scoreFor(hit, p.words.length) : 0;
+  const best = p.answers[0];
+  results.push({ id: p.id, words: p.words, answer: hit ? hit.name : guess, linked: !!hit, links: hit ? hit.links : p.words.map(() => 0), pts, best: best.name });
+  saveDaily();
+  paintPips();
+  $('guess').disabled = true; $('linkBtn').disabled = true; $('entry').hidden = true; $('hint1').hidden = true;
+  $('note').textContent = '';
+
+  if (hit) { setLabel(B, hit.name.toLowerCase(), 'set'); linkUp(B, hit.links); }
+  else {
+    setLabel(B, guess.toLowerCase(), 'ghost');
+    const st = $('stage');
+    st.classList.remove('shake'); void st.offsetWidth; st.classList.add('shake');
+    sfx.thud();
+  }
+
+  const tops = p.answers.filter(a => a !== hit).slice(0, 5);
+  const per = hit ? p.words.map((w, i) => `<span>${escapeHtml(w.toLowerCase())} <b>${'●'.repeat(hit.links[i])}${'○'.repeat(5 - hit.links[i])}</b></span>`).join('') : '';
+  const last = results.length >= ids.length;
+  $('after').innerHTML = `
+    <div class="verdict">
+      <div class="pts" id="roundPts">0<small> / 1000</small></div>
+      <div class="line">${hit ? lineFor(ROUND_LINES, pts) : 'The chain snapped.'}</div>
+      ${per ? `<div class="per">${per}</div>` : ''}
+      <div class="best">${bestLine(hit, best, pts, guess)}</div>
+    </div>
+    <div class="alts">
+      <h4>Strongest links</h4>
+      <div class="row">${tops.map(a => `<span>${escapeHtml(a.name.toLowerCase())}<em>${scoreFor(a, p.words.length)}</em></span>`).join('')}</div>
+    </div>
+    <button class="nextBtn" type="button" id="nextBtn">${last ? 'See results' : 'Next round →'}</button>`;
+  setTimeout(() => countUp($('roundPts'), pts, v => `${fmt(v)}<small> / 1000</small>`, 900, true), hit ? 500 : 0);
+  $('nextBtn').onclick = next;
+  setTimeout(() => $('nextBtn')?.focus(), 60);
+}
+
+function next() {
+  round++;
+  if (round >= ids.length) return showSummary();
+  showRound();
+}
+
+function countUp(node, to, f, ms = 1300, ticks = false) {
+  const t0 = performance.now();
+  let last = -1;
+  const step = now => {
+    const k = Math.min(1, (now - t0) / ms);
+    const v = Math.round(to * (1 - (1 - k) ** 3));
+    if (ticks && to && Math.floor(v / 100) !== last) { last = Math.floor(v / 100); sfx.tick(); }
+    node.innerHTML = f(v);
+    if (k < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
+// ---------- Summary ----------
+function miniChain(r) {
+  const n = r.words.length;
+  const svg = el('svg', { viewBox: n === 3 ? '0 0 170 64' : '0 0 170 40', class: 'mini' });
+  if (n === 3) {
+    [30, 85, 140].forEach((x, i) => {
+      const c = curve([x, 4], [x + (85 - x) * 0.25, 60], 0);
+      drawChain(svg, c, Math.round(Math.floor(c.len / 10) * r.links[i] / 5), 0, { pitch: 10, size: .5, delay: -1, gold: r.links[i] === 5, goldEnd: true });
+    });
+  } else {
+    const c = curve([6, 12], [164, 12], 9), slots = Math.floor(c.len / 10), l = n === 2 ? r.links : [r.links[0], r.links[0]];
+    drawChain(svg, c, Math.round(slots / 2 * l[0] / 5), Math.round(slots / 2 * l[1] / 5), { pitch: 10, size: .5, delay: -1, gold: true });
+    svg.querySelectorAll('.gap').forEach(g => g.classList.add('on'));
+  }
+  return svg;
+}
+
+// A smooth curve of your own past daily scores, with today marked. Nothing is shown until there's enough history.
+function historyCurve(total) {
+  const h = store.get('history', {});
+  const past = Object.entries(h).filter(([d]) => +d !== todayIndex()).map(([, v]) => v);
+  if (past.length < 3) return `<div class="curve"><p>Play a few more dailies to see how today compares with your usual score.</p></div>`;
+  const W = 600, H = 150, xs = v => 20 + (W - 40) * v / 5000, bw = 450;
+  const dens = x => past.reduce((s, v) => s + Math.exp(-(((x - v) / bw) ** 2) / 2), 0);
+  const pts = [];
+  let peak = 0;
+  for (let x = 0; x <= 5000; x += 50) { const d = dens(x); peak = Math.max(peak, d); pts.push([x, d]); }
+  const ys = d => H - 22 - (H - 40) * d / peak;
+  const line = pts.map(([x, d], i) => `${i ? 'L' : 'M'}${xs(x).toFixed(1)},${ys(d).toFixed(1)}`).join(' ');
+  const better = Math.round(100 * past.filter(v => total > v).length / past.length);
+  const yx = ys(dens(total));
+  return `<div class="curve"><svg viewBox="0 0 ${W} ${H + 14}">
+      <path d="${line} L${xs(5000)},${H - 22} L${xs(0)},${H - 22} Z" fill="#e8e8e4"/>
+      <path d="${line}" fill="none" stroke="#5d6970" stroke-width="2"/>
+      <line x1="${xs(0)}" y1="${H - 22}" x2="${xs(5000)}" y2="${H - 22}" stroke="#5d6970" stroke-width="1"/>
+      ${[0, 1000, 2000, 3000, 4000, 5000].map(v => `<text x="${xs(v)}" y="${H - 4}" text-anchor="middle" font-size="11" fill="#8a949b" font-family="Archivo">${fmt(v)}</text>`).join('')}
+      <line x1="${xs(total)}" y1="${yx}" x2="${xs(total)}" y2="${H - 22}" stroke="#c9871d" stroke-width="2"/>
+      <circle cx="${xs(total)}" cy="${yx}" r="5" fill="#c9871d" stroke="#fff" stroke-width="2"/>
+      <text x="${xs(total)}" y="${H + 10}" text-anchor="middle" font-size="12" font-weight="800" fill="#c9871d" font-family="Archivo" letter-spacing="1">YOU</text>
+    </svg><p>Better than <b>${better}%</b> of your previous dailies.</p></div>`;
+}
+
+function showSummary() {
+  const total = results.reduce((s, r) => s + r.pts, 0);
+  if (mode === 'daily') recordDaily(total);
+  else if (total > store.get('practiceBest', 0)) store.set('practiceBest', total);
+  round = ids.length;
+  $('play').hidden = true;
+  const el2 = $('summary');
+  el2.hidden = false;
+  el2.innerHTML = `
+    <div class="big" id="bigScore">0<small> of 5000</small></div>
+    <div class="tag">${lineFor(DAY_LINES, total)}</div>
+    ${mode === 'daily' ? historyCurve(total) : `<div class="curve"><p>Best practice game: <b>${fmt(Math.max(total, store.get('practiceBest', 0)))}</b></p></div>`}
+    <ul class="rows" id="rows"></ul>
+    <div class="actions">
+      ${mode === 'daily' ? '<button class="main" id="shareBtn" type="button">Share</button><button id="otherBtn" type="button">Practice</button>'
+                          : '<button class="main" id="againBtn" type="button">Play again</button><button id="otherBtn" type="button">Back to daily</button>'}
+    </div>
+    ${mode === 'daily' ? '<div class="countdown" id="countdown"></div>' : ''}`;
+  const rows = $('rows');
+  results.forEach((r, i) => {
+    const li = document.createElement('li');
+    li.style.animationDelay = `${i * .06}s`;
+    li.innerHTML = `<div><div class="w">${r.words.map(w => escapeHtml(w.toLowerCase())).join(' / ')}</div>
+      <div class="a ${r.pts ? '' : 'none'}">${r.answer ? escapeHtml(r.answer.toLowerCase()) : '—'}${r.pts ? '' : ' · no link'}</div>
+      <div class="b">Best: <i>${escapeHtml(r.best.toLowerCase())}</i></div></div><span class="m"></span><div class="p">${fmt(r.pts)}</div>`;
+    li.querySelector('.m').replaceWith(miniChain(r));
+    rows.append(li);
+  });
+  countUp($('bigScore'), total, v => `${fmt(v)}<small> of 5000</small>`);
+  if ($('shareBtn')) $('shareBtn').onclick = () => share(total);
+  if ($('againBtn')) $('againBtn').onclick = startPractice;
+  $('otherBtn').onclick = mode === 'daily' ? startPractice : startDaily;
+  if (mode === 'daily') runCountdown();
+}
+
+function share(total) {
+  const bar = r => r.links.map(l => '🟨'.repeat(l) + '⬜'.repeat(5 - l)).join(' ');
+  const text = `Chaindle #${todayIndex() + 1} ⛓️ ${fmt(total)}/5000\n${results.map(r => (r.pts ? bar(r) : '🟥 snapped') + ` ${r.pts}`).join('\n')}`;
+  const done = () => toast('Copied to clipboard');
+  if (navigator.clipboard) navigator.clipboard.writeText(text).then(done, () => prompt('Copy your result:', text));
+  else prompt('Copy your result:', text);
+}
+
+let cdTimer;
+function runCountdown() {
+  clearInterval(cdTimer);
+  const tick = () => {
+    const node = $('countdown');
+    if (!node) return clearInterval(cdTimer);
+    const now = new Date(), nx = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    const s = Math.max(0, Math.floor((nx - now) / 1000));
+    node.textContent = `Next Chaindle in ${String(Math.floor(s / 3600)).padStart(2, '0')}:${String(Math.floor(s / 60) % 60).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+    if (!s) { clearInterval(cdTimer); if (mode === 'daily') startDaily(); }
+  };
+  tick();
+  cdTimer = setInterval(tick, 1000);
+}
+
+// ---------- Stats ----------
+function recordDaily(total) {
+  const h = store.get('history', {});
+  if (h[todayIndex()] == null) { h[todayIndex()] = total; store.set('history', h); }
+}
+function openStats() {
+  const h = store.get('history', {});
+  const days = Object.keys(h).map(Number).sort((a, b) => a - b), scores = days.map(d => h[d]);
+  let streak = 0, d = todayIndex();
+  if (h[d] == null) d--;
+  while (h[d] != null) { streak++; d--; }
+  const avg = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
+  $('statsBody').innerHTML = [['Played', days.length], ['Average', fmt(avg)], ['Best', fmt(scores.length ? Math.max(...scores) : 0)], ['Streak', streak]]
+    .map(([k, v]) => `<div><b>${v}</b><span>${k}</span></div>`).join('');
+  $('statsExtra').textContent = `best practice game: ${fmt(store.get('practiceBest', 0))}`;
+  $('statsDlg').showModal();
+}
+
+// ---------- Wiring ----------
+$('entry').addEventListener('submit', e => { e.preventDefault(); submit(); });
+$('guess').addEventListener('input', () => { if (!locked && B) { setLabel(B, $('guess').value.trim().toLowerCase(), 'ghost'); $('note').textContent = ''; } });
+$('dailyTab').onclick = startDaily;
+$('practiceTab').onclick = startPractice;
+$('helpBtn').onclick = () => $('helpDlg').showModal();
+const paintSound = () => { $('soundBtn').textContent = soundOn ? '🔊' : '🔇'; };
+$('soundBtn').onclick = () => { soundOn = !soundOn; store.set('sound', soundOn); paintSound(); if (soundOn) sfx.clink(3); };
+paintSound();
+$('statsBtn').onclick = openStats;
+for (const b of document.querySelectorAll('[data-close]')) b.onclick = () => b.closest('dialog').close();
+for (const d of document.querySelectorAll('dialog')) d.addEventListener('click', e => { if (e.target === d) d.close(); });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && locked && !$('play').hidden && $('nextBtn') && document.activeElement !== $('nextBtn') && !document.querySelector('dialog[open]')) { e.preventDefault(); next(); }
+});
+
+drawLogo();
+startDaily();
+if (!store.get('seenHelp', false)) { store.set('seenHelp', true); setTimeout(() => $('helpDlg').showModal(), 400); }
+</script>
+</body>
+</html>
