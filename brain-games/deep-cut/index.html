@@ -168,6 +168,18 @@
     border: 2px solid #ff9ccc; box-shadow: 0 0 0 2px rgba(0,0,0,.4), 0 4px 0 #7a1747, 0 0 22px rgba(255,79,163,.45); transition: transform .08s, filter .15s;
   }
   .dive:hover { filter: brightness(1.12); } .dive:active { transform: translateY(3px); box-shadow: 0 0 0 2px rgba(0,0,0,.4), 0 1px 0 #7a1747; }
+  .sugg { position: absolute; left: 0; right: 0; bottom: calc(100% + 10px); z-index: 6; list-style: none; margin: 0; padding: 4px;
+    background: #040c1e; border: 2px solid var(--line); box-shadow: 0 0 0 2px rgba(0,0,0,.4), 0 0 24px rgba(79,227,255,.25); animation: suggIn .12s ease-out; }
+  @keyframes suggIn { from { transform: translateY(6px); opacity: 0; } }
+  .sugg li { padding: 4px 10px; font-size: 24px; color: #d6e9ff; cursor: pointer; display: flex; justify-content: space-between; gap: 12px; }
+  .sugg li small { font-size: 17px; color: var(--muted); align-self: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sugg li.on, .sugg li:hover { background: rgba(79,227,255,.16); color: #fff; box-shadow: inset 3px 0 0 var(--cyan); }
+  .sugg .tip { font-size: 15px; color: var(--muted); padding: 2px 10px 4px; letter-spacing: 1px; cursor: default; }
+  .sugg .tip:hover { background: none; box-shadow: none; }
+  .dym { margin-top: 10px; font-size: 19px; color: var(--yellow); display: flex; flex-wrap: wrap; gap: 6px; align-items: center; animation: pop .25s cubic-bezier(.2,1.6,.4,1) both; }
+  .dym button { font: 20px VT323, monospace; color: #fff1c2; background: rgba(255,210,63,.1); border: 1px solid rgba(255,210,63,.55); padding: 0 9px; }
+  .dym button:hover { background: rgba(255,210,63,.25); }
+  .chip-btn.off { color: var(--muted); border-color: rgba(143,180,207,.35); box-shadow: 0 0 0 2px rgba(0,0,0,.35); }
   .pass { font-family: Silkscreen, monospace; font-size: 12px; letter-spacing: 2px; color: var(--muted); background: rgba(6,16,38,.7); border: 2px solid rgba(143,180,207,.35); padding: 15px 10px; }
   .pass:hover { color: #fff; border-color: #fff; }
 
@@ -283,6 +295,7 @@
 
 <div class="top">
   <button class="chip-btn" id="homeBtn" type="button" hidden>▲ Surface</button>
+  <button class="chip-btn" id="suggBtn" type="button" title="Show matching answers while you type">HINTS ON</button>
   <button class="chip-btn" id="helpBtn" type="button" title="How to dive">?</button>
   <button class="chip-btn" id="statsBtn" type="button" title="Statistics">Stats</button>
 </div>
@@ -330,7 +343,7 @@
 <div class="bar" id="bar" hidden>
   <form id="answerForm" autocomplete="off">
     <div class="timer" id="timer"><svg viewBox="0 0 58 58"><circle class="bg" cx="29" cy="29" r="25"/><circle class="fg" id="timerFg" cx="29" cy="29" r="25" stroke-dasharray="157.08" stroke-dashoffset="0"/></svg><span id="timerNum">25</span></div>
-    <div class="field"><input id="answer" type="text" placeholder="type one answer…" autocapitalize="off" spellcheck="false" enterkeyhint="go" aria-label="Your answer"><div class="fuse" id="fuse"></div></div>
+    <div class="field"><ul class="sugg" id="sugg" role="listbox" hidden></ul><input id="answer" type="text" placeholder="type one answer…" autocapitalize="off" spellcheck="false" enterkeyhint="go" aria-label="Your answer" role="combobox" aria-autocomplete="list" aria-controls="sugg" aria-expanded="false"><div class="fuse" id="fuse"></div></div>
     <button class="dive" type="submit">DIVE</button>
     <button class="pass" type="button" id="passBtn">PASS</button>
   </form>
@@ -351,6 +364,7 @@
     <span class="tier t5">ABYSSAL</span><em>almost nobody says it</em><strong class="t5">85</strong>
   </div>
   <p><b>Today's Dive</b> is seven prompts, the same all day. <b>Endless Dive</b> goes on until you time out or pass three times.</p>
+  <p><b>Hints</b> (top right) show matching answers from the list as you type: pick one with the arrow keys and Enter, Tab, or a click. Turn them off for a harder dive. A near-miss also gets a "did you mean…?"</p>
   <p style="color:var(--muted)">Typos, accents, plurals and "the" don't matter. Answers are checked against built-in lists, so now and then a real answer might be missing.</p>
 </dialog>
 
@@ -400,7 +414,7 @@ const PROMPTS = DEEP_CUT_PROMPTS.map(p => {
     const keys = all.map(squash);
     if (seen.has(keys[0])) continue;   // the same answer listed twice
     seen.add(keys[0]);
-    answers.push({ name: all[0], keys, tier: Math.min(5, Math.max(1, +t || 3)) });
+    answers.push({ name: all[0], names: all, keys, tier: Math.min(5, Math.max(1, +t || 3)) });
   }
   // First listing wins, so an alias can't steal a key from an earlier answer.
   const exact = new Map();
@@ -411,18 +425,20 @@ const PROMPTS = DEEP_CUT_PROMPTS.map(p => {
   return { ...p, answers, exact };
 });
 
+// Edit distance where swapping two neighbouring letters counts as one typo; gives up past `max`.
 function lev(a, b, max) {
   if (Math.abs(a.length - b.length) > max) return max + 1;
-  let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  let prev2 = null, prev = Array.from({ length: b.length + 1 }, (_, i) => i);
   for (let i = 1; i <= a.length; i++) {
     const cur = [i];
     let best = i;
     for (let j = 1; j <= b.length; j++) {
       cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      if (prev2 && i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) cur[j] = Math.min(cur[j], prev2[j - 2] + 1);
       best = Math.min(best, cur[j]);
     }
     if (best > max) return max + 1;
-    prev = cur;
+    prev2 = prev; prev = cur;
   }
   return prev[b.length];
 }
@@ -440,6 +456,38 @@ function judge(prompt, guess) {
     if (d < bestD) { bestD = d; best = a; }
   }
   return best;
+}
+
+// Answers that look like what's been typed, best first: exact, starts-with, a word starts-with,
+// contains, then close spellings. `loose` (used after a wrong guess) also allows bigger typos.
+function suggest(prompt, text, limit, loose = false) {
+  const k = squash(text), n = norm(text);
+  if (k.length < 2) return [];
+  const maxD = k.length >= 8 ? 2 : k.length >= 4 ? 1 : 0;
+  const looseD = Math.max(1, Math.floor(k.length / 3));
+  const found = new Map();   // answer -> [score, label]
+  for (const a of prompt.answers) {
+    let best = Infinity, label = a.name;
+    a.keys.forEach((key, i) => {
+      let s = Infinity;
+      if (key === k) s = 0;
+      else if (key.startsWith(k)) s = 1;
+      else if (norm(a.names[i]).split(' ').some(w => w.startsWith(n))) s = 2;
+      else if (k.length >= 3 && key.includes(k)) s = 3;
+      else if (maxD && key.length > 3) {
+        const d = lev(k, key.slice(0, k.length), maxD);
+        if (d <= maxD) s = 4 + d;
+      }
+      if (s === Infinity && loose && key.length > 3) {
+        const d = lev(k, key, looseD);
+        if (d <= looseD) s = 6 + d;
+      }
+      if (s < best) { best = s; label = a.names[i]; }
+    });
+    if (best < Infinity) found.set(a, [best, label]);
+  }
+  return [...found].sort((x, y) => x[1][0] - y[1][0] || x[0].name.length - y[0].name.length || x[0].name.localeCompare(y[0].name))
+    .slice(0, limit).map(([a, [, label]]) => ({ a, alias: squash(label) !== squash(a.name) ? label : null }));
 }
 
 // ---------- State ----------
@@ -585,7 +633,8 @@ function nextPrompt() {
       <div class="label">${mode === 'daily' ? `PROMPT ${idx + 1} OF ${queue.length}` : `PROMPT ${idx + 1}`} · <span class="cat">${current.cat.toUpperCase()}</span></div>
       <div class="prompt" id="promptText"><span class="caret"></span></div>
       <div class="hint">rarer answers sink deeper · ${fmt(current.answers.length)} on the list</div>
-      <div class="misses" id="misses"></div>`;
+      <div class="misses" id="misses"></div>
+      <div class="dym" id="dym" hidden></div>`;
     typeOut(current.q);
     $('bar').hidden = false;
     $('answer').value = ''; $('answer').disabled = false;
@@ -629,10 +678,16 @@ function submitGuess() {
   if (!guess) return;
   const hit = judge(current, guess);
   if (hit) return finishPrompt({ hit, guess }, false);
+  hideSugg();
   if (!misses.some(m => squash(m) === squash(guess))) {
     misses.push(guess);
     $('misses').insertAdjacentHTML('beforeend', `<span>${escapeHtml(guess)}</span>`);
   }
+  const close = suggest(current, guess, 3, true);
+  const dym = $('dym');
+  dym.hidden = !close.length;
+  dym.innerHTML = close.length ? `did you mean ${close.map((s, i) => `<button type="button" data-i="${i}">${escapeHtml(s.a.name)}</button>`).join(' ')}?` : '';
+  dym.onclick = e => { const b = e.target.closest('button'); if (b) pickAnswer(close[+b.dataset.i].a); };
   const card = $('card');
   card.classList.remove('wrong'); void card.offsetWidth; card.classList.add('wrong');
   flash('#ff3b5c');
@@ -658,6 +713,7 @@ function finishPrompt(res, passed) {
   if (answered) return;
   answered = true;
   cancelAnimationFrame(raf); clearInterval(typing);
+  hideSugg();
   $('answer').disabled = true;
   const left = Math.max(0, deadline - performance.now());
   let pts = 0, tier = 0, name = null;
@@ -714,6 +770,65 @@ function renderReveal(r, passed) {
   $('nextBtn').onclick = nextPrompt;
   setTimeout(() => $('nextBtn') && $('nextBtn').focus(), 60);
 }
+
+// ---------- Typing suggestions ----------
+let sugg = [], suggOn = -1;
+let hintsOn = store.get('hints', true);
+function pickAnswer(a) {
+  if (answered) return;
+  $('answer').value = a.name;
+  finishPrompt({ hit: a, guess: a.name }, false);
+}
+function renderSugg() {
+  const el = $('sugg'), input = $('answer');
+  sugg = hintsOn && !answered ? suggest(current, input.value, 6) : [];
+  suggOn = -1;
+  if (!sugg.length) return hideSugg();
+  el.innerHTML = sugg.map((s, i) => `<li role="option" data-i="${i}"><span>${escapeHtml(s.a.name)}</span>${s.alias ? `<small>${escapeHtml(s.alias)}</small>` : ''}</li>`).join('')
+    + '<li class="tip" aria-hidden="true">↑↓ choose · enter or tab to dive</li>';
+  el.hidden = false;
+  input.setAttribute('aria-expanded', 'true');
+}
+function paintSugg() {
+  [...$('sugg').querySelectorAll('li[data-i]')].forEach((li, i) => li.classList.toggle('on', i === suggOn));
+}
+function hideSugg() {
+  sugg = []; suggOn = -1;
+  $('sugg').hidden = true;
+  $('answer').setAttribute('aria-expanded', 'false');
+}
+function paintHintsBtn() {
+  $('suggBtn').textContent = hintsOn ? 'HINTS ON' : 'HINTS OFF';
+  $('suggBtn').classList.toggle('off', !hintsOn);
+}
+$('answer').addEventListener('input', renderSugg);
+$('answer').addEventListener('blur', () => setTimeout(hideSugg, 150));
+$('answer').addEventListener('keydown', e => {
+  if (!sugg.length) return;
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    const n = sugg.length;
+    suggOn = e.key === 'ArrowDown' ? (suggOn + 1) % n : (suggOn <= 0 ? n - 1 : suggOn - 1);
+    paintSugg();
+  } else if (e.key === 'Tab') {
+    e.preventDefault();
+    pickAnswer(sugg[Math.max(0, suggOn)].a);
+  } else if (e.key === 'Enter' && suggOn >= 0) {
+    e.preventDefault();
+    pickAnswer(sugg[suggOn].a);
+  } else if (e.key === 'Escape') hideSugg();
+});
+$('sugg').addEventListener('mousedown', e => {
+  const li = e.target.closest('li[data-i]');
+  if (!li) return;
+  e.preventDefault();
+  pickAnswer(sugg[+li.dataset.i].a);
+});
+$('suggBtn').onclick = () => {
+  hintsOn = !hintsOn; store.set('hints', hintsOn); paintHintsBtn();
+  if (!answered) { renderSugg(); $('answer').focus(); }
+};
+paintHintsBtn();
 
 // ---------- Results ----------
 function showResults() {
