@@ -1,0 +1,858 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Originle · Brain Games</title>
+<meta name="description" content="Meet today's guest and work out which country they're from. Eight clues, three guesses.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/brain.css">
+<style>
+  :root {
+    --paper: #f3f3f1;
+    --card: rgba(255,255,255,.86);
+    --ink: #1d2024;
+    --soft: #6c7177;
+    --faint: #b9bcc0;
+    --rule: #e1e2e0;
+    --accent: #e8782e;
+    --good: #2f9a62;
+    --bad: #c74a3c;
+    --gold: #d6a23a;
+    --serif: "Cormorant Garamond", Georgia, serif;
+    --sans: "Hanken Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  body { background: radial-gradient(1100px 700px at 50% 30%, #fbfbfa, var(--paper)); color: var(--ink); font-family: var(--sans); overflow-x: hidden; }
+  button { font-family: var(--sans); }
+
+  /* ---------- Header ---------- */
+  .top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 20px 28px 0; position: relative; z-index: 3; }
+  .brand b { display: block; letter-spacing: 6px; font-size: 13px; font-weight: 600; }
+  .brand span { display: block; letter-spacing: 2px; font-size: 11px; color: var(--soft); margin-top: 6px; text-transform: uppercase; }
+  .nav { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+  .nav button { background: none; border: 0; box-shadow: none; padding: 6px 10px; font-size: 13px; color: var(--ink); border-radius: 999px; font-weight: 500; }
+  .nav button:hover:not(:disabled) { background: rgba(0,0,0,.05); box-shadow: none; }
+  .nav button.on { background: var(--ink); color: #fff; }
+  .nav .circle { width: 28px; height: 28px; padding: 0; border: 1px solid var(--faint); display: grid; place-items: center; }
+
+  /* ---------- Stage ---------- */
+  .stage { position: relative; display: grid; grid-template-columns: minmax(230px, 280px) 1fr minmax(290px, 320px); gap: 20px; padding: 0 28px 24px; min-height: calc(100vh - 70px); min-height: calc(100dvh - 70px); }
+  .bigq { position: absolute; left: 0; right: 0; top: 7vh; text-align: center; font-size: clamp(54px, 9vw, 128px); font-weight: 500; letter-spacing: -2px; color: rgba(29,32,36,.06); white-space: nowrap; pointer-events: none; user-select: none; transition: color .6s; z-index: 0; }
+  .bigq.found { color: rgba(47,154,98,.12); }
+  .left { position: relative; z-index: 2; padding-top: 18vh; display: flex; flex-direction: column; gap: 14px; }
+  .clueHead .rule { width: 26px; height: 1px; background: var(--ink); opacity: .5; margin-bottom: 14px; }
+  .clueHead .num { font-size: 12px; letter-spacing: 2px; color: var(--soft); margin-right: 10px; }
+  .clueHead .title { font-family: var(--serif); font-style: italic; font-size: 26px; }
+  .clueHead .sub { font-size: 13px; color: var(--soft); margin-top: 4px; }
+  .outline { width: 100%; max-width: 240px; height: auto; display: block; }
+  .outline path { fill: rgba(29,32,36,.06); stroke: var(--ink); stroke-width: 1.2; stroke-linejoin: round; stroke-dasharray: var(--len); animation: draw 1.8s ease-out both; }
+  @keyframes draw { from { stroke-dashoffset: var(--len); fill-opacity: 0; } to { stroke-dashoffset: 0; fill-opacity: 1; } }
+  .outline-cap { font-family: var(--serif); font-style: italic; color: var(--soft); font-size: 18px; }
+
+  .globeBox { position: relative; width: 230px; max-width: 100%; }
+  #globe { width: 230px; height: 230px; display: block; cursor: grab; touch-action: none; }
+  #globe.grabbing { cursor: grabbing; }
+  .globeBox .shadow { width: 60%; height: 14px; margin: -2px auto 0; border-radius: 50%; background: radial-gradient(closest-side, rgba(0,0,0,.12), transparent); }
+  .globeLabel { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--soft); }
+  .globeHint { font-size: 12px; color: var(--soft); }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chips button { font-size: 12px; padding: 3px 10px; border-radius: 999px; background: #fff; border: 1px solid var(--rule); font-weight: 600; }
+  .chips button.out { text-decoration: line-through; color: var(--soft); }
+  .chips button.wrong { color: var(--bad); border-color: rgba(199,74,60,.4); text-decoration: line-through; }
+  .chips button.short::before { content: "★ "; color: var(--gold); }
+
+  /* ---------- Guest ---------- */
+  .center { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; min-width: 0; }
+  .welcome { font-family: var(--serif); font-size: 26px; margin-top: 2vh; text-align: center; min-height: 34px; }
+  .guest { height: min(66vh, 560px); width: auto; max-width: 100%; display: block; margin-top: auto; }
+  .guest .av { animation: breathe 4.5s ease-in-out infinite; transform-box: fill-box; transform-origin: bottom center; }
+  @keyframes breathe { 50% { transform: translateY(2.5px) scaleY(.995); } }
+  .guest .eyes { animation: blink 5.5s infinite; transform-box: fill-box; transform-origin: center; }
+  @keyframes blink { 0%, 93%, 100% { transform: scaleY(1); } 95% { transform: scaleY(.1); } }
+  .guest .m-open { opacity: 0; }
+  .guest.talking .m-open { animation: talk .19s infinite alternate; }
+  @keyframes talk { from { opacity: 0; } to { opacity: 1; } }
+  .guest.enter { animation: guestIn .7s cubic-bezier(.2,.9,.3,1) both; }
+  @keyframes guestIn { from { opacity: 0; transform: translateY(30px); } }
+  .caption {
+    position: absolute; left: 50%; bottom: 3%; transform: translateX(-50%); width: min(560px, 96%); text-align: center;
+    background: rgba(255,255,255,.9); backdrop-filter: blur(8px); border: 1px solid var(--rule); border-radius: 16px; padding: 14px 20px;
+    font-size: 18px; line-height: 1.45; box-shadow: 0 14px 40px rgba(0,0,0,.08); min-height: 56px;
+  }
+  .caption .cur { display: inline-block; width: 2px; height: 1em; background: var(--ink); vertical-align: -2px; margin-left: 2px; animation: cur .9s steps(1) infinite; }
+  @keyframes cur { 50% { opacity: 0; } }
+  .caption.done .cur { display: none; }
+
+  /* ---------- Guess card ---------- */
+  .right { position: relative; z-index: 2; padding-top: 18vh; }
+  .card { background: var(--card); backdrop-filter: blur(10px); border: 1px solid rgba(0,0,0,.06); border-radius: 22px; padding: 18px 20px 20px; box-shadow: 0 24px 60px rgba(0,0,0,.08), 0 2px 6px rgba(0,0,0,.04); }
+  .dots { display: flex; align-items: center; gap: 7px; }
+  .dots button { width: 11px; height: 11px; padding: 0; border-radius: 50%; border: 1.5px solid var(--faint); background: transparent; box-shadow: none; }
+  .dots button.seen { background: var(--faint); border-color: var(--faint); }
+  .dots button.cur { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 0 3px rgba(232,120,46,.18); }
+  .dots button:disabled { opacity: 1; }
+  .dots .pts { margin-left: auto; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .dots .pts.drop { animation: drop .5s; }
+  @keyframes drop { 30% { color: var(--bad); transform: translateY(2px); } }
+  .lbl { display: flex; justify-content: space-between; align-items: center; margin-top: 18px; font-size: 11px; letter-spacing: 1.6px; color: var(--soft); text-transform: uppercase; }
+  .lbl .left3 { display: flex; gap: 4px; align-items: center; }
+  .lbl .left3 i { width: 7px; height: 7px; border-radius: 50%; background: var(--ink); display: inline-block; }
+  .lbl .left3 i.used { background: transparent; border: 1.5px solid var(--faint); }
+  .lbl .tried { text-transform: none; letter-spacing: 0; text-decoration: line-through; color: var(--bad); font-size: 12px; margin-right: 6px; }
+  .combo { position: relative; margin-top: 6px; }
+  .combo input[type=text] { background: transparent; border: 0; border-bottom: 1.5px solid var(--faint); border-radius: 0; padding: 8px 2px; font-size: 18px; font-weight: 500; box-shadow: none; }
+  .combo input[type=text]:focus { border-bottom-color: var(--ink); box-shadow: none; }
+  .combo ul { position: absolute; left: -6px; right: -6px; top: calc(100% + 6px); z-index: 20; list-style: none; margin: 0; padding: 6px; background: #fff; border: 1px solid var(--rule); border-radius: 14px; box-shadow: 0 18px 40px rgba(0,0,0,.12); max-height: 260px; overflow-y: auto; }
+  .combo li { padding: 8px 10px; border-radius: 9px; cursor: pointer; display: flex; justify-content: space-between; gap: 8px; }
+  .combo li small { color: var(--soft); }
+  .combo li.on, .combo li:hover { background: #f1f1ef; }
+  .combo li.tried { color: var(--faint); text-decoration: line-through; cursor: default; }
+  .pill { border-radius: 999px; padding: 9px 18px; font-size: 14px; font-weight: 600; border: 1px solid var(--faint); background: transparent; }
+  .pill.dark { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .pill .cost { color: var(--soft); font-weight: 500; margin-left: 8px; }
+  .lockRow { margin-top: 16px; }
+  .info { font-size: 13px; color: var(--soft); margin: 14px 0 0; line-height: 1.45; }
+  .info b { color: var(--ink); }
+  .info.bad b { color: var(--bad); }
+  .revealRow { margin-top: 14px; }
+  .warn { font-size: 12.5px; color: var(--soft); border-left: 2px solid var(--ink); padding-left: 10px; margin-top: 14px; }
+  .warn b { color: var(--ink); display: block; }
+  .giveUp { margin-top: 14px; background: none; border: 0; padding: 0; font-size: 13px; color: var(--soft); box-shadow: none; font-weight: 500; }
+  .giveUp:hover:not(:disabled) { color: var(--ink); box-shadow: none; }
+  .allDone { font-family: var(--serif); font-style: italic; font-size: 18px; color: var(--soft); margin-top: 10px; }
+
+  /* results */
+  .res h2 { font-family: var(--serif); font-weight: 500; font-size: 32px; margin: 16px 0 0; }
+  .res .score { font-size: 48px; font-weight: 400; letter-spacing: -1px; line-height: 1.1; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .res .score small { font-size: 13px; color: var(--soft); letter-spacing: 0; }
+  .res p { margin: 8px 0 0; color: var(--soft); font-size: 14px; }
+  .res .who { font-size: 13px; margin-top: 12px; }
+  .res .acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+  .res .count { font-size: 12px; color: var(--soft); margin-top: 14px; }
+  .reread { margin-top: 14px; border-top: 1px solid var(--rule); padding-top: 10px; max-height: 210px; overflow-y: auto; }
+  .reread div { font-size: 13px; margin-bottom: 8px; color: var(--soft); }
+  .reread div b { color: var(--ink); font-weight: 600; }
+
+  /* ---------- Lock-in dialog ---------- */
+  .holdDlg { width: min(360px, calc(100vw - 32px)); border-radius: 22px; background: rgba(250,250,249,.96); }
+  .holdDlg::backdrop { background: rgba(243,243,241,.55); backdrop-filter: blur(6px); }
+  .holdDlg h3 { font-family: var(--serif); font-weight: 500; font-size: 28px; line-height: 1.15; margin: 0 0 14px; }
+  .holdDlg h3 i { font-weight: 600; }
+  .holdDlg .ifs { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; font-size: 14px; }
+  .holdDlg .ifs span { font-size: 11px; letter-spacing: 1.6px; color: var(--soft); text-transform: uppercase; align-self: center; }
+  .holdRow { display: flex; align-items: center; gap: 14px; margin-top: 20px; }
+  .holdBtn { width: 60px; height: 60px; padding: 0; border-radius: 50%; border: 0; background: transparent; position: relative; box-shadow: none; touch-action: none; }
+  .holdBtn svg { width: 60px; height: 60px; transform: rotate(-90deg); }
+  .holdBtn circle { fill: none; stroke-width: 2.5; }
+  .holdBtn .bg { stroke: var(--faint); }
+  .holdBtn .fg { stroke: var(--ink); stroke-dasharray: 176; stroke-dashoffset: 176; }
+  .holdRow .txt b { display: block; font-weight: 600; }
+  .holdRow .txt small { color: var(--soft); }
+  .holdRow .no { margin-left: auto; background: none; border: 0; box-shadow: none; color: var(--soft); font-weight: 500; }
+
+  .archive { list-style: none; padding: 0; margin: 10px 0 0; max-height: 60vh; overflow-y: auto; }
+  .archive li button { width: 100%; display: flex; justify-content: space-between; gap: 10px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--rule); background: #fff; margin-bottom: 6px; font-weight: 500; text-align: left; }
+  .archive li button small { color: var(--soft); font-weight: 400; }
+  .archive li button .st { font-weight: 600; }
+  .archive li button .st.ok { color: var(--good); } .archive li button .st.miss { color: var(--bad); }
+  dialog p, dialog li { line-height: 1.5; }
+  dialog .note { border-left: 2px solid var(--ink); padding-left: 12px; color: var(--soft); font-size: 14px; }
+
+  @media (max-width: 980px) {
+    .stage { grid-template-columns: 1fr; padding: 0 16px 28px; gap: 14px; }
+    .bigq { top: 4vh; font-size: 13vw; }
+    .left { display: contents; }
+    .clueHead { order: 1; }
+    .center { order: 2; min-height: 48vh; }
+    .right { padding-top: 0; order: 3; }
+    #outlineBox { order: 4; }
+    .globeWrap { order: 5; }
+    .globeWrap .globeBox { margin: 0 auto; }
+    .welcome { font-size: 21px; }
+    .guest { height: min(44vh, 360px); }
+    .caption { position: relative; left: auto; bottom: auto; transform: none; margin-top: -40px; font-size: 16px; }
+    .top { padding: 14px 16px 6px; }
+    .left .clueHead { text-align: center; } .left .clueHead .rule { margin: 0 auto 12px; }
+  }
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="brand"><b>ORIGINLE</b><span id="brandSub">No. 001 · Today's guest</span></div>
+  <nav class="nav">
+    <button type="button" id="dailyTab" class="on">Daily</button>
+    <button type="button" id="practiceTab">Practice</button>
+    <button type="button" id="archiveBtn">Archive</button>
+    <button type="button" id="statsBtn">Stats</button>
+    <button type="button" class="circle" id="helpBtn" title="How to play">?</button>
+  </nav>
+</div>
+
+<main class="stage" id="stage">
+  <div class="bigq" id="bigq" aria-hidden="true">Where am I from?</div>
+
+  <section class="left">
+    <div class="clueHead" id="clueHead"></div>
+    <div id="outlineBox" hidden></div>
+    <div class="globeWrap">
+      <div class="globeBox"><canvas id="globe" aria-label="Notes globe: drag to spin, tap a country to shortlist or cross it out"></canvas><div class="shadow"></div></div>
+      <div class="globeLabel">🌐 <span>Explore your hunches</span></div>
+      <div class="globeHint">Drag to spin. Tap a country to ★ shortlist it, tap again to cross it out.</div>
+      <div class="chips" id="chips"></div>
+    </div>
+  </section>
+
+  <section class="center">
+    <div class="welcome" id="welcome"></div>
+    <div id="guestBox"></div>
+    <div class="caption" id="caption" aria-live="polite"></div>
+  </section>
+
+  <section class="right">
+    <div class="card" id="card"></div>
+  </section>
+</main>
+
+<dialog class="holdDlg" id="holdDlg">
+  <h3 id="holdTitle"></h3>
+  <div class="ifs" id="holdIfs"></div>
+  <div class="holdRow">
+    <button type="button" class="holdBtn" id="holdBtn" aria-label="Press and hold to lock in your guess">
+      <svg viewBox="0 0 60 60"><circle class="bg" cx="30" cy="30" r="28"/><circle class="fg" id="holdRing" cx="30" cy="30" r="28"/></svg>
+    </button>
+    <div class="txt"><b>Lock it in</b><small>Press and hold</small></div>
+    <button type="button" class="no" id="holdNo">Not yet</button>
+  </div>
+</dialog>
+
+<dialog id="helpDlg">
+  <div class="dlgHead"><b style="font-family:var(--serif);font-size:28px;font-weight:500">How to play</b><button type="button" class="icon ghost" data-close>✕</button></div>
+  <p><b>Guess the country today's guest comes from.</b></p>
+  <p>Listen to their first clue. Choose <b>Reveal next clue</b> whenever you need more help. There are 8 clues, and they get easier. The last one shows the outline of their country.</p>
+  <p>You have <b>three guesses</b>. Scores are out of 10,000: each clue you reveal costs more than the one before, from 250 points to 1,750 for the last, and each wrong guess costs 30% of your points. Miss all three, or give up, and you still score for how close your nearest guess came.</p>
+  <p>Use the globe to keep notes: tap a country to shortlist it, tap again to cross it out.</p>
+  <p class="note">A new guest every day at midnight. Want more? <b>Practice</b> brings out a new guest whenever you like, and the <b>Archive</b> has every past daily.</p>
+</dialog>
+
+<dialog id="statsDlg">
+  <div class="dlgHead"><b>Statistics</b><button type="button" class="icon ghost" data-close>✕</button></div>
+  <div class="stats" id="statsBody"></div>
+  <p id="statsExtra" style="text-align:center;color:var(--soft);margin:0;font-size:14px"></p>
+</dialog>
+
+<dialog id="archiveDlg">
+  <div class="dlgHead"><b>Archive</b><button type="button" class="icon ghost" data-close>✕</button></div>
+  <p style="margin:0;color:var(--soft);font-size:14px">Every daily guest so far. Pick one to play or look back at it.</p>
+  <ul class="archive" id="archiveList"></ul>
+</dialog>
+<div class="toast" id="toast"></div>
+
+<script src="../shared/brain.js"></script>
+<script src="../globle/lib/d3.min.js"></script>
+<script src="../globle/lib/topojson-client.min.js"></script>
+<script src="../globle/lib/countries-50m.js"></script>
+<script src="../globle/lib/countries-110m.js"></script>
+<script src="../shared/countries.js"></script>
+<script src="data/guests.js"></script>
+<script>
+const START_POINTS = 10000;
+const CLUE_COST = [0, 0, 250, 500, 750, 1000, 1250, 1500, 1750];   // cost to reveal clue n
+const MISS_SHARE = 0.3;
+const GUESSES = 3;
+const FIRST_DATE = new Date(2026, 9, 1);              // Originle #1, so the archive starts with some guests
+const FIRST_DAY = dayNumber(FIRST_DATE);
+const store = makeStore('originle:');
+const fmt = n => n.toLocaleString('en-US');
+const escapeHtml = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+const round10 = n => Math.round(n / 10) * 10;
+const ORD = ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight'];
+const NTH = ['', 'first', 'second', 'third'];
+
+// ---------- Countries ----------
+const W = BrainCountries.build(window.WORLD);
+const loByName = new Map(topojson.feature(WORLD_LO, WORLD_LO.objects.countries).features.map(f => [f.properties.name, f]));
+for (const c of W.countries) c.lo = loByName.get(c.raw) || c.feature;
+const borderLo = topojson.mesh(WORLD_LO, WORLD_LO.objects.countries, (a, b) => a !== b);
+
+// Distance between closest borders (km), from sampled border points; 0 for neighbours.
+function points(c) {
+  if (c.pts) return c.pts;
+  const raw = [];
+  const walk = a => { if (typeof a[0] === 'number') raw.push(a); else a.forEach(walk); };
+  if (c.feature.geometry) walk(c.feature.geometry.coordinates);
+  const step = Math.max(1, Math.ceil(raw.length / 1500)), rad = Math.PI / 180, out = [];
+  for (let k = 0; k < raw.length; k += step) {
+    const lon = raw[k][0] * rad, lat = raw[k][1] * rad, cl = Math.cos(lat);
+    out.push(cl * Math.cos(lon), cl * Math.sin(lon), Math.sin(lat));
+  }
+  return (c.pts = Float64Array.from(out));
+}
+function distanceKm(a, b) {
+  if (a === b || W.neighbors[a.i].includes(b.i)) return 0;
+  const p = points(a), q = points(b);
+  let best = -2;
+  for (let x = 0; x < p.length; x += 3) for (let y = 0; y < q.length; y += 3) {
+    const d = p[x] * q[y] + p[x + 1] * q[y + 1] + p[x + 2] * q[y + 2];
+    if (d > best) best = d;
+  }
+  return Math.acos(Math.min(1, best)) * 6371;
+}
+
+// ---------- Guests ----------
+const GUESTS = (window.ORIGINLE_GUESTS || []).map((g, i) => ({ ...g, id: i, c: W.byName(g.country) })).filter(g => g.c);
+const ORDER = shuffled(GUESTS.map(g => g.id), seeded(20261020));
+const todayIndex = () => dayNumber() - FIRST_DAY;
+const guestForDay = d => GUESTS[ORDER[((d % ORDER.length) + ORDER.length) % ORDER.length]];
+const dateForDay = d => { const t = new Date(FIRST_DATE); t.setDate(t.getDate() + d); return t; };
+
+// ---------- Illustrated guest ----------
+// A friendly flat portrait whose look is picked from the guest's name, never from their country.
+function hashStr(s) { let h = 2166136261; for (const ch of s) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
+function avatarSvg(g) {
+  const r = seeded(hashStr(g.name + ':' + g.id));
+  const pick = a => a[Math.floor(r() * a.length)];
+  const skin = pick(['#f7dcc8', '#efc4a4', '#ddaa84', '#c08559', '#9a6440', '#6e4630']);
+  const hair = pick(['#231b17', '#3d2b20', '#6b4529', '#a8733d', '#d8b56e', '#9c3d22', '#8d8d8d', '#151517']);
+  const top = pick(['#2b2f36', '#38577c', '#7f3a3a', '#4d6b4f', '#c99a3e', '#62498a', '#e5dfd3', '#2f6b6f', '#a35d2f']);
+  const hairStyle = pick(['short', 'short', 'long', 'bun', 'curly', 'buzz', 'side', 'long']);
+  const topStyle = pick(['hoodie', 'crew', 'collar', 'crew']);
+  const glasses = r() < .32, freckles = r() < .15;
+  const shade = d3.color(skin).darker(.35).formatHex(), topDark = d3.color(top).darker(.6).formatHex();
+  const brow = d3.color(hair).darker(.2).formatHex();
+  const backHair = hairStyle === 'long' ? `<path d="M82 160 C 76 86, 224 86, 218 160 L 226 300 C 200 312, 100 312, 74 300 Z" fill="${hair}"/>`
+    : hairStyle === 'bun' ? `<circle cx="150" cy="80" r="24" fill="${hair}"/>` : '';
+  const curls = hairStyle === 'curly' ? Array.from({ length: 13 }, (_, k) => {
+    const a = Math.PI * (1.02 + k * 0.077), x = 150 + Math.cos(a) * 66, y = 158 + Math.sin(a) * 76;
+    return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${17 + (k % 3) * 2}" fill="${hair}"/>`;
+  }).join('') : '';
+  const frontHair = {
+    short: `<path d="M86 152 C 82 86, 130 74, 154 78 C 196 80, 220 104, 214 154 C 204 122, 176 106, 150 110 C 122 108, 98 124, 86 152 Z" fill="${hair}"/>`,
+    long: `<path d="M86 160 C 80 86, 130 74, 154 78 C 196 80, 222 104, 214 160 C 206 120, 184 104, 162 104 C 150 120, 120 128, 86 160 Z" fill="${hair}"/>`,
+    bun: `<path d="M88 150 C 86 92, 130 84, 152 86 C 192 86, 216 104, 212 150 C 200 120, 176 108, 150 110 C 124 108, 100 122, 88 150 Z" fill="${hair}"/>`,
+    curly: `<path d="M90 150 C 90 104, 130 92, 150 94 C 178 94, 210 108, 210 150 C 196 128, 172 118, 150 120 C 128 118, 104 128, 90 150 Z" fill="${hair}"/>`,
+    buzz: `<path d="M90 146 C 88 98, 128 88, 150 88 C 176 88, 212 100, 210 146 C 196 122, 172 112, 150 112 C 128 112, 104 122, 90 146 Z" fill="${hair}" opacity=".55"/>`,
+    side: `<path d="M86 156 C 80 90, 126 72, 160 78 C 200 84, 222 112, 214 150 C 190 120, 140 118, 120 106 C 108 126, 96 138, 86 156 Z" fill="${hair}"/>`,
+  }[hairStyle];
+  const neckline = topStyle === 'hoodie'
+    ? `<path d="M92 304 C 108 270, 192 270, 208 304 C 192 324, 108 324, 92 304 Z" fill="${topDark}"/><path d="M136 312 l -4 46 M164 312 l 4 46" stroke="#f2f2f2" stroke-width="3" stroke-linecap="round"/>`
+    : topStyle === 'collar'
+      ? `<path d="M122 286 L 150 318 L 132 330 L 112 296 Z M178 286 L 150 318 L 168 330 L 188 296 Z" fill="#f4f2ee"/><circle cx="150" cy="342" r="2.5" fill="${topDark}"/><circle cx="150" cy="366" r="2.5" fill="${topDark}"/>`
+      : `<path d="M118 292 C 128 312, 172 312, 182 292" stroke="${topDark}" stroke-width="6" fill="none" stroke-linecap="round"/>`;
+  return `<svg class="guest enter" id="guestSvg" viewBox="0 0 300 420" role="img" aria-label="Today's guest">
+    <ellipse cx="150" cy="414" rx="110" ry="6" fill="rgba(0,0,0,.08)"/>
+    <g class="av">
+      ${backHair}
+      <path d="M28 420 C 34 316, 86 274, 150 274 C 214 274, 266 316, 272 420 Z" fill="${top}"/>
+      <rect x="127" y="222" width="46" height="66" rx="20" fill="${shade}"/>
+      <g transform="translate(0 -18)">${neckline}</g>
+      <ellipse cx="88" cy="172" rx="10" ry="15" fill="${shade}"/><ellipse cx="212" cy="172" rx="10" ry="15" fill="${skin}"/>
+      <ellipse cx="150" cy="166" rx="63" ry="75" fill="${skin}"/>
+      ${curls}${frontHair}
+      <path d="M116 152 q 12 -7 24 -1 M160 151 q 12 -6 24 1" stroke="${brow}" stroke-width="4" fill="none" stroke-linecap="round"/>
+      <g class="eyes"><ellipse cx="128" cy="171" rx="5.5" ry="6.5" fill="#1d1d1f"/><ellipse cx="172" cy="171" rx="5.5" ry="6.5" fill="#1d1d1f"/></g>
+      ${glasses ? `<g fill="none" stroke="#25272b" stroke-width="3.2"><rect x="108" y="156" width="38" height="30" rx="10"/><rect x="154" y="156" width="38" height="30" rx="10"/><path d="M146 168 q 4 -4 8 0"/></g>` : ''}
+      <path d="M150 180 q -7 15 2 19" stroke="${shade}" stroke-width="3" fill="none" stroke-linecap="round"/>
+      <ellipse cx="114" cy="196" rx="10" ry="6" fill="#e58b7a" opacity=".18"/><ellipse cx="186" cy="196" rx="10" ry="6" fill="#e58b7a" opacity=".18"/>
+      ${freckles ? `<g fill="${shade}" opacity=".6"><circle cx="118" cy="190" r="1.6"/><circle cx="124" cy="194" r="1.6"/><circle cx="182" cy="190" r="1.6"/><circle cx="176" cy="194" r="1.6"/></g>` : ''}
+      <path class="m-closed" d="M135 213 q 15 9 30 0" stroke="#86413a" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+      <ellipse class="m-open" cx="150" cy="215" rx="11" ry="8" fill="#6d2b26"/>
+    </g>
+  </svg>`;
+}
+
+// ---------- State ----------
+// A game is an ordered log of events, so points can always be recomputed exactly:
+// revealing clue n costs CLUE_COST[n]; a wrong guess costs 30% of the points you have at that moment.
+let G = null;          // { mode, day, guest, log: [{t:'clue'}|{t:'guess', name, ok}], marks: {name: 'short'|'out'}, done, view }
+const revealed = () => 1 + G.log.filter(e => e.t === 'clue').length;
+const guesses = () => G.log.filter(e => e.t === 'guess');
+function pointsNow() {
+  let p = START_POINTS, n = 1;
+  for (const e of G.log) {
+    if (e.t === 'clue') p -= CLUE_COST[++n];
+    else if (!e.ok) p -= round10(p * MISS_SHARE);
+  }
+  return Math.max(0, p);
+}
+function finalScore() {
+  if (guesses().some(g => g.ok)) return pointsNow();
+  const tried = guesses().map(g => W.byName(g.name)).filter(Boolean);
+  if (!tried.length) return 0;
+  const d = Math.min(...tried.map(c => distanceKm(c, G.guest.c)));
+  return round10(pointsNow() * 0.5 * Math.max(0, 1 - d / 4000));
+}
+function closestMiss() {
+  const tried = guesses().map(g => W.byName(g.name)).filter(Boolean);
+  if (!tried.length) return null;
+  return tried.map(c => ({ c, d: distanceKm(c, G.guest.c) })).sort((a, b) => a.d - b.d)[0];
+}
+
+function save() {
+  if (G.mode === 'practice') return;
+  store.set('day:' + G.day, { log: G.log, marks: G.marks, done: G.done, score: G.done ? finalScore() : null, won: G.done ? guesses().some(g => g.ok) : null });
+}
+
+function startDay(day, mode = 'daily') {
+  const saved = store.get('day:' + day, null);
+  G = { mode, day, guest: guestForDay(day), log: saved?.log || [], marks: saved?.marks || {}, done: !!saved?.done, view: null };
+  begin();
+}
+function startPractice() {
+  const recent = new Set(store.get('recent', []));
+  const avoid = new Set([guestForDay(todayIndex()).id]);
+  let pool = GUESTS.filter(g => !recent.has(g.id) && !avoid.has(g.id));
+  if (!pool.length) pool = GUESTS.filter(g => !avoid.has(g.id));
+  const guest = pool[Math.floor(Math.random() * pool.length)];
+  store.set('recent', [guest.id, ...recent].slice(0, Math.max(10, GUESTS.length - 20)));
+  G = { mode: 'practice', day: null, guest, log: [], marks: {}, done: false, view: null };
+  begin();
+}
+
+function begin() {
+  $('dailyTab').classList.toggle('on', G.mode === 'daily');
+  $('practiceTab').classList.toggle('on', G.mode === 'practice');
+  $('brandSub').textContent = G.mode === 'practice' ? 'Practice · a new guest' : `No. ${String(G.day + 1).padStart(3, '0')} · ${G.mode === 'daily' ? "Today's guest" : dateForDay(G.day).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+  $('guestBox').innerHTML = avatarSvg(G.guest);
+  setBig('Where am I from?');
+  $('bigq').classList.remove('found');
+  $('welcome').textContent = G.log.length || G.done ? '' : G.mode === 'practice' ? 'Meet your next guest.' : "Welcome to today's Originle.";
+  G.view = revealed();
+  pending = null;
+  render(true);
+  if (G.done) finishView(false);
+  else rotateTo(globeHome());
+}
+
+// ---------- Rendering ----------
+// The big faded headline behind the guest, sized so longer lines still fit across the screen.
+function setBig(text) {
+  const el = $('bigq');
+  el.textContent = text;
+  el.style.fontSize = `min(${(144 / Math.max(16, text.length)).toFixed(2)}vw, 128px)`;
+}
+
+const clueAt = n => n === 8 ? ['Location', 'The shape of my country.'] : G.guest.clues[n - 1];
+
+function render(speakNow = false) {
+  const n = G.view, [title, text] = clueAt(n);
+  $('clueHead').innerHTML = `<div class="rule"></div><span class="num">0${n}</span><span class="title">${escapeHtml(title)}</span>
+    <div class="sub">Clue ${ORD[n]} of eight</div>`;
+  const showOutline = revealed() >= 8 || G.done;
+  $('outlineBox').hidden = !showOutline;
+  if (showOutline && !$('outlineBox').dataset.drawn) drawOutline();
+  if (speakNow) speak(text); else { $('caption').textContent = text; $('caption').className = 'caption done'; }
+  renderCard();
+  paintChips();
+  drawGlobe();
+}
+
+let speakTimer = 0;
+function speak(text) {
+  clearInterval(speakTimer);
+  const cap = $('caption'), svg = $('guestSvg');
+  cap.className = 'caption';
+  let i = 0;
+  svg?.classList.add('talking');
+  speakTimer = setInterval(() => {
+    i = Math.min(text.length, i + 1);
+    cap.innerHTML = escapeHtml(text.slice(0, i)) + '<span class="cur"></span>';
+    if (i >= text.length) { clearInterval(speakTimer); cap.className = 'caption done'; svg?.classList.remove('talking'); }
+  }, 24);
+}
+
+function dotsHtml(pts) {
+  const r = revealed();
+  return `<div class="dots" role="group" aria-label="Clues">${Array.from({ length: 8 }, (_, k) => {
+    const n = k + 1, cls = n === G.view ? 'cur' : n <= r ? 'seen' : '';
+    return `<button type="button" class="${cls}" data-n="${n}" ${n <= r ? '' : 'disabled'} title="${n <= r ? 'Clue ' + n + ': ' + escapeHtml(clueAt(n)[0]) : 'Not revealed yet'}"></button>`;
+  }).join('')}<span class="pts" id="pts">${fmt(pts)}</span></div>`;
+}
+
+let pending = null;   // country picked in the combobox, waiting to be locked in
+function renderCard() {
+  if (G.done) return;
+  const pts = pointsNow(), r = revealed(), gs = guesses(), left = GUESSES - gs.length;
+  const nextCost = CLUE_COST[r + 1];
+  const missCost = round10(pts * MISS_SHARE);
+  const last = gs[gs.length - 1];
+  $('card').innerHTML = `
+    ${dotsHtml(pts)}
+    <div class="lbl"><span>Your guess</span><span class="left3">${gs.filter(g => !g.ok).map(g => `<span class="tried">${escapeHtml(g.name)}</span>`).join('')}${Array.from({ length: GUESSES }, (_, k) => `<i class="${k < left ? '' : 'used'}"></i>`).join('')}</span></div>
+    <div class="combo">
+      <input type="text" id="cInput" placeholder="${gs.length ? 'Choose another country' : 'Choose a country'}" autocomplete="off" spellcheck="false" role="combobox" aria-autocomplete="list" aria-controls="cList" aria-expanded="false" value="${pending ? escapeHtml(pending.name) : ''}">
+      <ul id="cList" role="listbox" hidden></ul>
+    </div>
+    <div class="lockRow"><button type="button" class="pill ${pending ? 'dark' : ''}" id="lockBtn" ${pending ? '' : 'disabled'}>Lock in guess</button></div>
+    <p class="info ${last && !last.ok ? 'bad' : ''}">${last && !last.ok ? `<b>Not quite.</b> ${left === 1 ? 'One guess' : 'Two guesses'} left. ` : `You have ${left === 3 ? 'three guesses' : left + ' guesses'}. `}A miss costs ${fmt(missCost)}.</p>
+    ${r < 8 ? `${r === 7 ? `<div class="warn"><b>The final clue shows where I'm from.</b>My country's outline, and a pin on your globe.</div>` : ''}
+      <div class="revealRow"><button type="button" class="pill" id="revealBtn">${r === 7 ? 'Reveal final clue' : 'Reveal next clue'}<span class="cost">−${fmt(nextCost)}</span></button></div>`
+      : `<div class="allDone">All clues revealed. Take your time.</div>`}
+    <button type="button" class="giveUp" id="giveUpBtn">Give up</button>`;
+  wireCard();
+}
+
+function wireCard() {
+  $('card').querySelectorAll('.dots button[data-n]').forEach(b => b.onclick = () => { G.view = +b.dataset.n; render(true); });
+  $('revealBtn')?.addEventListener('click', revealNext);
+  $('giveUpBtn').onclick = () => { if (confirm('Give up and see where I\'m from?')) endGame(); };
+  $('lockBtn').onclick = () => pending && openHold(pending);
+  const input = $('cInput');
+  input.addEventListener('input', () => { pending = null; $('lockBtn').disabled = true; $('lockBtn').classList.remove('dark'); suggest(); });
+  input.addEventListener('focus', suggest);
+  input.addEventListener('blur', () => setTimeout(hideList, 150));
+  input.addEventListener('keydown', e => {
+    const items = sugg;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      if (!items.length) return;
+      e.preventDefault();
+      act = e.key === 'ArrowDown' ? (act + 1) % items.length : (act <= 0 ? items.length - 1 : act - 1);
+      paintList();
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (pending) return openHold(pending);
+      const c = items[Math.max(0, act)]?.c || W.byName(input.value);
+      if (c) choose(c);
+    } else if (e.key === 'Escape') hideList();
+  });
+  $('cList').addEventListener('mousedown', e => {
+    const li = e.target.closest('li[data-i]');
+    if (!li) return;
+    e.preventDefault();
+    choose(sugg[+li.dataset.i].c);
+  });
+}
+
+// Country autocomplete: starts-with first, then word starts-with, then nicknames (USA, Ivory Coast…).
+let sugg = [], act = -1;
+function suggest() {
+  const input = $('cInput'), n = BrainCountries.norm(input.value);
+  const tried = new Set(guesses().map(g => g.name));
+  if (!n) { sugg = []; return hideList(); }
+  const found = new Map();
+  for (const c of W.playable) {
+    const k = BrainCountries.norm(c.name);
+    const s = k.startsWith(n) ? 0 : k.split(' ').some(w => w.startsWith(n)) ? 1 : n.length > 2 && k.includes(n) ? 3 : -1;
+    if (s >= 0) found.set(c, [s, null]);
+  }
+  for (const [key, alias, c] of W.aliases) if (key.startsWith(n) && (!found.has(c) || found.get(c)[0] > 2)) found.set(c, [2, alias]);
+  sugg = [...found].sort((a, b) => a[1][0] - b[1][0] || a[0].name.localeCompare(b[0].name)).slice(0, 8)
+    .map(([c, [, alias]]) => ({ c, alias, tried: tried.has(c.name) }));
+  act = sugg.findIndex(s => !s.tried);
+  paintList();
+}
+function paintList() {
+  const ul = $('cList');
+  if (!sugg.length) return hideList();
+  ul.innerHTML = sugg.map((s, i) => `<li role="option" data-i="${i}" class="${i === act ? 'on' : ''} ${s.tried ? 'tried' : ''}"><span>${escapeHtml(s.c.name)}</span>${s.alias ? `<small>${escapeHtml(s.alias)}</small>` : s.tried ? '<small>tried</small>' : ''}</li>`).join('');
+  ul.hidden = false;
+  $('cInput').setAttribute('aria-expanded', 'true');
+}
+function hideList() { const ul = $('cList'); if (ul) { ul.hidden = true; $('cInput').setAttribute('aria-expanded', 'false'); } }
+function choose(c) {
+  if (guesses().some(g => g.name === c.name)) { toast(`You already tried ${c.name}`); return; }
+  pending = c;
+  $('cInput').value = c.name;
+  hideList();
+  $('lockBtn').disabled = false; $('lockBtn').classList.add('dark'); $('lockBtn').focus();
+}
+
+function revealNext() {
+  if (G.done || revealed() >= 8) return;
+  G.log.push({ t: 'clue' });
+  G.view = revealed();
+  $('welcome').textContent = '';
+  save();
+  render(true);
+  bumpPts();
+  if (G.view === 8) { rotateTo(G.guest.c.center); }
+}
+function bumpPts() { const p = $('pts'); if (p) { p.classList.remove('drop'); void p.offsetWidth; p.classList.add('drop'); } }
+
+// ---------- Press-and-hold lock-in ----------
+let holdRaf = 0, holdStart = 0;
+const HOLD_MS = 850;
+function openHold(c) {
+  const pts = pointsNow();
+  $('holdTitle').innerHTML = `<i>${escapeHtml(c.name)}?</i> This uses one of your three guesses.`;
+  $('holdIfs').innerHTML = `<span>If right</span><b>${fmt(pts)}</b><span>If wrong</span><b>−${fmt(round10(pts * MISS_SHARE))}</b>`;
+  $('holdRing').style.strokeDashoffset = 176;
+  $('holdDlg').showModal();
+}
+function holdDown(e) {
+  e.preventDefault();
+  cancelAnimationFrame(holdRaf);
+  holdStart = performance.now();
+  const step = now => {
+    const k = Math.min(1, (now - holdStart) / HOLD_MS);
+    $('holdRing').style.strokeDashoffset = 176 * (1 - k);
+    if (k >= 1) { $('holdDlg').close(); lockIn(pending); return; }
+    holdRaf = requestAnimationFrame(step);
+  };
+  holdRaf = requestAnimationFrame(step);
+}
+function holdUp() { cancelAnimationFrame(holdRaf); $('holdRing').style.strokeDashoffset = 176; }
+const hb = $('holdBtn');
+hb.addEventListener('pointerdown', holdDown);
+for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) hb.addEventListener(ev, holdUp);
+hb.addEventListener('keydown', e => { if ((e.key === ' ' || e.key === 'Enter') && !e.repeat) holdDown(e); });
+hb.addEventListener('keyup', e => { if (e.key === ' ' || e.key === 'Enter') holdUp(); });
+$('holdNo').onclick = () => $('holdDlg').close();
+
+function lockIn(c) {
+  if (!c || G.done) return;
+  const ok = c === G.guest.c;
+  G.log.push({ t: 'guess', name: c.name, ok });
+  pending = null;
+  if (!ok) G.marks[c.name] = 'wrong';
+  if (ok || guesses().length >= GUESSES) return endGame();
+  save();
+  renderCard();
+  paintChips();
+  drawGlobe();
+  bumpPts();
+  rotateTo(c.center);
+  const card = $('card');
+  card.animate?.([{ transform: 'translateX(0)' }, { transform: 'translateX(-8px)' }, { transform: 'translateX(8px)' }, { transform: 'translateX(0)' }], { duration: 320 });
+  speak(`Not quite, it isn't ${c.name}. ${GUESSES - guesses().length === 1 ? 'One guess' : 'Two guesses'} left.`);
+}
+
+function endGame() {
+  G.done = true;
+  save();
+  if (G.mode !== 'practice') recordDay();
+  else if (finalScore() > store.get('practiceBest', 0)) store.set('practiceBest', finalScore());
+  finishView(true);
+}
+
+function finishView(fresh) {
+  clearInterval(speakTimer);
+  const won = guesses().some(g => g.ok), score = finalScore(), gs = guesses(), c = G.guest.c;
+  G.view = revealed();
+  setBig(won ? 'You found my home.' : `I'm from ${c.name}.`);
+  $('bigq').classList.toggle('found', won);
+  $('welcome').textContent = '';
+  $('outlineBox').hidden = false;
+  if (!$('outlineBox').dataset.drawn) drawOutline();
+  const miss = won ? null : closestMiss();
+  const line = won
+    ? `Found with ${revealed()} ${revealed() === 1 ? 'clue' : 'clues'}, on your ${NTH[gs.length]} guess.`
+    : miss ? `Your closest guess, ${miss.c.name}, was ${miss.d < 1 ? 'right next door' : fmt(Math.round(miss.d)) + ' km away'}.` : 'You gave up before guessing.';
+  const others = G.mode === 'daily' ? '<div class="count" id="countdown"></div>' : '';
+  $('card').innerHTML = `
+    ${dotsHtml(score)}
+    <div class="res">
+      <h2>That's ${escapeHtml(c.name)}.</h2>
+      <div class="score" id="finalScore">0<small> / 10,000</small></div>
+      <p>${line}</p>
+      <div class="who">${G.mode === 'practice' ? 'Practice' : 'Originle #' + (G.day + 1)} · ${escapeHtml(G.guest.name)}</div>
+      <div class="acts">
+        ${G.mode !== 'practice' ? '<button type="button" class="pill dark" id="shareBtn">Share your result</button>' : ''}
+        <button type="button" class="pill ${G.mode === 'practice' ? 'dark' : ''}" id="nextGuestBtn">Meet another guest →</button>
+      </div>
+      ${others}
+      <div class="reread">${Array.from({ length: revealed() }, (_, k) => { const [t, x] = clueAt(k + 1); return `<div><b>${k + 1}. ${escapeHtml(t)}:</b> ${escapeHtml(x)}</div>`; }).join('')}</div>
+    </div>`;
+  $('card').querySelectorAll('.dots button[data-n]').forEach(b => b.onclick = () => { G.view = +b.dataset.n; render(false); finishView(false); });
+  const fs = $('finalScore');
+  if (fresh) countUp(fs, score); else fs.innerHTML = `${fmt(score)}<small> / 10,000</small>`;
+  $('shareBtn')?.addEventListener('click', share);
+  $('nextGuestBtn').onclick = startPractice;
+  if (G.mode === 'daily') runCountdown();
+  const [title, text] = clueAt(G.view);
+  $('clueHead').innerHTML = `<div class="rule"></div><span class="title">${escapeHtml(G.mode === 'practice' ? 'Practice' : 'Originle #' + (G.day + 1))} · ${escapeHtml(G.guest.name)}</span>`;
+  const sayIt = won ? `You found my home! I'm from ${c.name}.` : `I'm from ${c.name}. Thanks for playing!`;
+  if (fresh) speak(sayIt); else { $('caption').textContent = sayIt; $('caption').className = 'caption done'; }
+  paintChips();
+  drawGlobe();
+  rotateTo(c.center);
+}
+
+function countUp(node, to) {
+  const t0 = performance.now();
+  const step = now => {
+    const k = Math.min(1, (now - t0) / 1300);
+    node.innerHTML = `${fmt(Math.round(to * (1 - (1 - k) ** 3)))}<small> / 10,000</small>`;
+    if (k < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
+function share() {
+  const gs = guesses(), won = gs.some(g => g.ok);
+  const text = `Originle #${G.day + 1} 🌍 ${fmt(finalScore())}/10,000\n${'🟠'.repeat(revealed())}${'⚪'.repeat(8 - revealed())} clues\n${gs.map(g => g.ok ? '🟩' : '🟥').join('')}${won ? '' : ' · ' + G.guest.c.name}`;
+  const done = () => toast('Copied to clipboard');
+  if (navigator.clipboard) navigator.clipboard.writeText(text).then(done, () => prompt('Copy your result:', text));
+  else prompt('Copy your result:', text);
+}
+
+let cdTimer;
+function runCountdown() {
+  clearInterval(cdTimer);
+  const tick = () => {
+    const node = $('countdown');
+    if (!node) return clearInterval(cdTimer);
+    const now = new Date(), nx = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    const s = Math.max(0, Math.floor((nx - now) / 1000));
+    node.textContent = `Next guest in ${String(Math.floor(s / 3600)).padStart(2, '0')}:${String(Math.floor(s / 60) % 60).padStart(2, '0')}:${String(s % 60).padStart(2, '0')} · midnight`;
+    if (!s) { clearInterval(cdTimer); startDay(todayIndex()); }
+  };
+  tick();
+  cdTimer = setInterval(tick, 1000);
+}
+
+// ---------- Clue 8: the outline ----------
+function drawOutline() {
+  const c = G.guest.c, box = $('outlineBox');
+  const proj = d3.geoOrthographic().rotate([-c.center[0], -c.center[1]]).clipAngle(90).fitExtent([[8, 8], [232, 172]], c.feature);
+  const d = d3.geoPath(proj)(c.feature);
+  box.innerHTML = `<svg class="outline" viewBox="0 0 240 180" aria-label="Outline of my country"><path d="${d}"/></svg><div class="outline-cap">The shape of my country</div>`;
+  box.dataset.drawn = '1';
+  const path = box.querySelector('path');
+  path.style.setProperty('--len', Math.ceil(path.getTotalLength() + 2));
+}
+
+// ---------- Notes globe ----------
+const canvas = $('globe'), gctx = canvas.getContext('2d');
+const gProj = d3.geoOrthographic().clipAngle(90).precision(1.5);
+const gPath = d3.geoPath(gProj, gctx);
+let gRot = [-10, -25], gTween = null, gSize = 230, gDirty = true;
+function sizeGlobe() {
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  canvas.width = gSize * dpr; canvas.height = gSize * dpr;
+  canvas.style.width = canvas.style.height = gSize + 'px';
+  gctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  gProj.translate([gSize / 2, gSize / 2]).scale(gSize / 2 - 4);
+  gDirty = true;
+}
+const globeHome = () => { const t = guesses().find(g => !g.ok); return t ? W.byName(t.name).center : [10, 25]; };
+function markOf(c) {
+  if (G?.done && c === G.guest.c) return 'answer';
+  if (revealed() >= 8 && c === G.guest.c) return 'answer';
+  return G?.marks[c.name] || null;
+}
+const MARK_FILL = { short: '#f1c86b', out: '#d6d7d5', wrong: '#e9a39a', answer: '#7fcfa1' };
+function drawGlobe() { gDirty = true; }
+function paintGlobe() {
+  gProj.rotate(gRot);
+  gctx.clearRect(0, 0, gSize, gSize);
+  const r = gSize / 2 - 4;
+  const sea = gctx.createRadialGradient(gSize * .38, gSize * .34, r * .1, gSize / 2, gSize / 2, r);
+  sea.addColorStop(0, '#ffffff'); sea.addColorStop(1, '#e7e8e6');
+  gctx.beginPath(); gPath({ type: 'Sphere' }); gctx.fillStyle = sea; gctx.fill();
+  gctx.beginPath();
+  for (const c of W.countries) if (!markOf(c)) gPath(c.lo);
+  gctx.fillStyle = '#fbfbfa'; gctx.fill();
+  for (const c of W.countries) {
+    const m = markOf(c);
+    if (!m) continue;
+    gctx.beginPath(); gPath(c.lo); gctx.fillStyle = MARK_FILL[m]; gctx.fill();
+  }
+  gctx.beginPath(); gPath(borderLo); gctx.strokeStyle = '#9da1a5'; gctx.lineWidth = .45; gctx.stroke();
+  gctx.beginPath();
+  for (const c of W.countries) if (!loByName.has(c.raw)) gPath(c.feature);
+  gctx.stroke();
+  gctx.beginPath(); gPath({ type: 'Sphere' }); gctx.strokeStyle = '#8c9094'; gctx.lineWidth = 1; gctx.stroke();
+  // Pin the answer once it's known.
+  if (G && (G.done || revealed() >= 8)) {
+    const c = G.guest.c, p = gProj(c.center);
+    if (p && d3.geoDistance(c.center, [-gRot[0], -gRot[1]]) < Math.PI / 2) {
+      gctx.beginPath(); gctx.arc(p[0], p[1], 5, 0, Math.PI * 2); gctx.fillStyle = '#e8782e'; gctx.fill();
+      gctx.lineWidth = 2; gctx.strokeStyle = '#fff'; gctx.stroke();
+      gctx.font = '600 11px Hanken Grotesk, sans-serif'; gctx.fillStyle = '#1d2024'; gctx.textAlign = 'center';
+      gctx.fillText(c.name, p[0], p[1] - 10);
+    }
+  }
+}
+function globeLoop(t) {
+  if (gTween) {
+    const k = Math.min(1, (t - gTween.t0) / 900);
+    gRot = gTween.i(d3.easeCubicInOut(k));
+    if (k >= 1) gTween = null;
+    gDirty = true;
+  }
+  if (gDirty) { paintGlobe(); gDirty = false; }
+  requestAnimationFrame(globeLoop);
+}
+function rotateTo([lon, lat]) {
+  const from = gRot.slice(), to = [-lon, Math.max(-60, Math.min(60, -lat))];
+  while (to[0] - from[0] > 180) to[0] -= 360;
+  while (to[0] - from[0] < -180) to[0] += 360;
+  gTween = { i: d3.interpolate(from, to), t0: performance.now() };
+}
+let moved = 0;
+d3.select(canvas).call(d3.drag()
+  .on('start', () => { gTween = null; moved = 0; canvas.classList.add('grabbing'); })
+  .on('drag', e => { moved += Math.abs(e.dx) + Math.abs(e.dy); gRot = [gRot[0] + e.dx * .5, Math.max(-85, Math.min(85, gRot[1] - e.dy * .5))]; gDirty = true; })
+  .on('end', e => {
+    canvas.classList.remove('grabbing');
+    if (moved > 4 || !G) return;
+    // A tap: find the country under the pointer and cycle its note.
+    const [x, y] = d3.pointer(e.sourceEvent, canvas);
+    const ll = gProj.invert([x, y]);
+    if (!ll || d3.geoDistance(ll, [-gRot[0], -gRot[1]]) > Math.PI / 2) return;
+    const c = W.playable.find(c => d3.geoContains(c.lo, ll)) || W.playable.find(c => d3.geoContains(c.feature, ll));
+    if (!c || G.marks[c.name] === 'wrong') return;
+    const next = { undefined: 'short', short: 'out', out: undefined }[G.marks[c.name]];
+    if (next) G.marks[c.name] = next; else delete G.marks[c.name];
+    save(); paintChips(); drawGlobe();
+  }));
+
+function paintChips() {
+  const entries = Object.entries(G.marks).sort((a, b) => ({ short: 0, out: 1, wrong: 2 }[a[1]] - { short: 0, out: 1, wrong: 2 }[b[1]]));
+  $('chips').innerHTML = entries.map(([n, m]) => `<button type="button" class="${m}" data-n="${escapeHtml(n)}" title="${m === 'short' ? 'Shortlisted: tap to guess it' : m === 'wrong' ? 'Already guessed' : 'Crossed out'}">${escapeHtml(n)}</button>`).join('');
+  $('chips').querySelectorAll('button').forEach(b => b.onclick = () => {
+    const c = W.byName(b.dataset.n);
+    if (!c) return;
+    rotateTo(c.center);
+    if (!G.done && G.marks[c.name] === 'short' && $('cInput')) choose(c);
+  });
+}
+
+// ---------- Stats & archive ----------
+function recordDay() {
+  const h = store.get('history', {});
+  if (h[G.day] == null) { h[G.day] = { score: finalScore(), won: guesses().some(g => g.ok) }; store.set('history', h); }
+}
+function openStats() {
+  const h = store.get('history', {});
+  const days = Object.keys(h).map(Number).sort((a, b) => a - b), recs = days.map(d => h[d]);
+  let streak = 0, d = todayIndex();
+  if (h[d] == null) d--;
+  while (h[d] != null && h[d].won) { streak++; d--; }
+  const won = recs.filter(r => r.won).length;
+  $('statsBody').innerHTML = [['Played', days.length], ['Solved', days.length ? Math.round(100 * won / days.length) + '%' : '–'],
+    ['Average', recs.length ? fmt(round10(recs.reduce((s, r) => s + r.score, 0) / recs.length)) : '–'], ['Streak', streak]]
+    .map(([k, v]) => `<div><b>${v}</b><span>${k}</span></div>`).join('');
+  $('statsExtra').textContent = `best daily ${fmt(recs.length ? Math.max(...recs.map(r => r.score)) : 0)} · best practice ${fmt(store.get('practiceBest', 0))}`;
+  $('statsDlg').showModal();
+}
+function openArchive() {
+  const t = todayIndex();
+  $('archiveList').innerHTML = Array.from({ length: t + 1 }, (_, k) => t - k).map(d => {
+    const s = store.get('day:' + d, null);
+    const st = s?.done ? (s.won ? `<span class="st ok">${fmt(s.score)}</span>` : `<span class="st miss">${fmt(s.score)}</span>`) : s?.log?.length ? '<span class="st">In progress</span>' : '<span class="st">Play</span>';
+    return `<li><button type="button" data-d="${d}"><span>No. ${String(d + 1).padStart(3, '0')} <small>· ${dateForDay(d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}${d === t ? ' · today' : ''}</small></span>${st}</button></li>`;
+  }).join('');
+  $('archiveList').querySelectorAll('button').forEach(b => b.onclick = () => { $('archiveDlg').close(); const d = +b.dataset.d; startDay(d, d === todayIndex() ? 'daily' : 'archive'); });
+  $('archiveDlg').showModal();
+}
+
+// ---------- Wiring ----------
+$('dailyTab').onclick = () => startDay(todayIndex());
+$('practiceTab').onclick = startPractice;
+$('archiveBtn').onclick = openArchive;
+$('statsBtn').onclick = openStats;
+$('helpBtn').onclick = () => $('helpDlg').showModal();
+for (const b of document.querySelectorAll('[data-close]')) b.onclick = () => b.closest('dialog').close();
+for (const d of document.querySelectorAll('dialog')) d.addEventListener('click', e => { if (e.target === d) d.close(); });
+window.addEventListener('resize', () => { const w = Math.min(230, canvas.parentElement.clientWidth || 230); if (w !== gSize) { gSize = w; sizeGlobe(); } });
+
+sizeGlobe();
+requestAnimationFrame(globeLoop);
+if (!GUESTS.length) document.body.insertAdjacentHTML('afterbegin', '<p style="padding:20px">No guests found.</p>');
+else startDay(todayIndex());
+if (!store.get('seenHelp', false)) { store.set('seenHelp', true); setTimeout(() => $('helpDlg').showModal(), 500); }
+</script>
+</body>
+</html>
