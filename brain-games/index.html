@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Brain Games</title>
-<meta name="description" content="Trivia, word and geography puzzles: Deep Cut, where rare answers score big, Chaindle, the word-linking chain, and Globle, the mystery-country globe game.">
+<meta name="description" content="Trivia, word and geography puzzles: Deep Cut, where rare answers score big, Chaindle, the word-linking chain, Originle, where you guess where a guest is from, and Globle, the mystery-country globe game.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="shared/brain.css">
@@ -28,6 +28,7 @@
   }
   .games li:nth-child(2) .game { animation-delay: .06s; }
   .games li:nth-child(3) .game { animation-delay: .12s; }
+  .games li:nth-child(4) .game { animation-delay: .18s; }
   .game:hover, .game:focus-visible { transform: translateY(-4px); box-shadow: var(--shadow-lg); border-color: color-mix(in srgb, var(--tint) 45%, var(--border)); outline: none; }
   .tile {
     flex: none; width: 108px; border-radius: 16px; display: grid; place-items: center; font-size: 50px;
@@ -94,6 +95,16 @@
           <h2>Chaindle</h2>
           <p>Link the words with one of your own: Pizza + Pasta → Tomato. The stronger the connection, the more chain links you forge.</p>
           <div class="meta"><span class="chip">Words</span><span class="chip">Daily</span><span class="chip">Practice</span><span class="play">Play →</span></div>
+        </div>
+      </a>
+    </li>
+    <li>
+      <a class="game panel" href="originle/" style="--tint:#e8782e">
+        <div class="tile" aria-hidden="true">🧳</div>
+        <div class="info">
+          <h2>Originle</h2>
+          <p>Meet today's guest and work out where they're from. Eight clues, each easier than the last, and three guesses.</p>
+          <div class="meta"><span class="chip">Geography</span><span class="chip">Daily</span><span class="chip">Archive</span><span class="play">Play →</span></div>
         </div>
       </a>
     </li>

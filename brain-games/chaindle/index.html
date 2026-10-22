@@ -251,7 +251,11 @@ function parse(p, kind, i) {
   for (const a of answers) {
     const key = a.links.join(','), rank = seen.get(key) || 0;
     seen.set(key, rank + 1);
-    a.pts = Math.round(ROUND_MAX * a.links.reduce((s, l) => s + LINK_VALUE[l], 0) / n * (1 - Math.min(.2, rank * .025)));
+    // A chain only holds if it reaches every word, so lopsided links (5 to one word, 1 to the other) are
+    // scaled down by how unbalanced they are.
+    const vals = a.links.map(l => LINK_VALUE[l]);
+    const balance = n > 1 ? (Math.min(...vals) / Math.max(...vals)) ** .35 : 1;
+    a.pts = Math.round(ROUND_MAX * vals.reduce((s, v) => s + v, 0) / n * balance * (1 - Math.min(.2, rank * .025)));
   }
   answers.sort((x, y) => y.pts - x.pts);
   return { id: `${kind}:${i}`, kind, words: p.w, answers, exact, shown: new Set(p.w.flatMap(w => [squash(w), singular(squash(w))])) };
