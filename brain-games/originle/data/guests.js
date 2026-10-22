@@ -1039,7 +1039,7 @@ window.ORIGINLE_GUESTS = [
     ['Welcome', "Hello! I'm a bird-watching guide. Home is green and lush, and the equator runs right through it."],
     ['An odd fact', 'The longest river in the world begins its journey north from a lake on our border.'],
     ['Landscape & weather', "A big share of Africa's largest lake, snowy peaks in the west called the Mountains of the Moon, and plenty of rain."],
-    ['Language', "English and Swahili are official, and Luganda is widely spoken. 'Webale' means thank you."],
+    ['Language', "English and Swahili are official, and dozens of local languages are spoken. 'Webale' means thank you in the most common one."],
     ['Food & daily life', "Matoke, steamed green bananas, and the 'rolex', a chapati rolled around an omelette, from street stalls."],
     ['Nature', "About half of the world's mountain gorillas live in our forests, and Winston Churchill called us 'the pearl of Africa'."],
     ['A souvenir from home', 'Here is a bark-cloth bookmark and a postcard of Murchison Falls, posted from Kampala.'],
@@ -1080,3 +1080,4 @@ window.ORIGINLE_GUESTS = [
     ['History', 'Christopher Columbus first landed in the Americas on one of our islands in 1492.'],
     ['A souvenir from home', 'Here is a pink conch shell and a postcard of Paradise Island, posted from Nassau.'],
   ]},
+];
