@@ -54,7 +54,25 @@
   #globe { width: 230px; height: 230px; display: block; cursor: grab; touch-action: none; }
   #globe.grabbing { cursor: grabbing; }
   .globeBox .shadow { width: 60%; height: 14px; margin: -2px auto 0; border-radius: 50%; background: radial-gradient(closest-side, rgba(0,0,0,.12), transparent); }
-  .globeLabel { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--soft); }
+  .globeLabel { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--soft); background: none; border: 0; box-shadow: none; padding: 0; font-weight: 500; }
+  .globeLabel:hover:not(:disabled) { color: var(--ink); box-shadow: none; }
+  .globeLabel .open { font-size: 15px; }
+  #globe { cursor: zoom-in; }
+  .globeDlg { width: min(860px, calc(100vw - 24px)); max-height: calc(100vh - 24px); border-radius: 22px; background: #fbfbfa; padding: 16px 20px 18px; }
+  .globeDlg::backdrop { background: rgba(243,243,241,.7); backdrop-filter: blur(6px); }
+  .globeDlg .dlgHead b { font-family: var(--serif); font-weight: 500; font-size: 26px; }
+  .bigWrap { position: relative; display: flex; justify-content: center; margin: 4px 0 10px; }
+  #bigGlobe { display: block; cursor: grab; touch-action: none; }
+  #bigGlobe.grabbing { cursor: grabbing; }
+  .globeTip { position: absolute; pointer-events: none; background: var(--ink); color: #fff; font-size: 13px; font-weight: 600; padding: 4px 9px; border-radius: 8px; white-space: nowrap; }
+  .zoomG { position: absolute; right: 4px; bottom: 4px; display: flex; flex-direction: column; gap: 6px; }
+  .globeSel { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-height: 42px; }
+  .globeSel b { font-family: var(--serif); font-size: 24px; font-weight: 600; margin-right: 6px; }
+  .globeSel .pill { padding: 7px 14px; }
+  .muted { color: var(--soft); font-size: 13px; }
+  .globeDlg .chips { margin-top: 10px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 12px; font-size: 12px; color: var(--soft); align-items: center; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; border: 1px solid rgba(0,0,0,.1); }
   .globeHint { font-size: 12px; color: var(--soft); }
   .chips { display: flex; flex-wrap: wrap; gap: 6px; }
   .chips button { font-size: 12px; padding: 3px 10px; border-radius: 999px; background: #fff; border: 1px solid var(--rule); font-weight: 600; }
@@ -196,9 +214,9 @@
     <div class="clueHead" id="clueHead"></div>
     <div id="outlineBox" hidden></div>
     <div class="globeWrap">
-      <div class="globeBox"><canvas id="globe" aria-label="Notes globe: drag to spin, tap a country to shortlist or cross it out"></canvas><div class="shadow"></div></div>
-      <div class="globeLabel">🌐 <span>Explore your hunches</span></div>
-      <div class="globeHint">Drag to spin. Tap a country to ★ shortlist it, tap again to cross it out.</div>
+      <div class="globeBox"><canvas id="globe" title="Open the big globe" aria-label="Notes globe: tap to open it big"></canvas><div class="shadow"></div></div>
+      <button type="button" class="globeLabel" id="openGlobe">🌐 <span>Explore your hunches</span><span class="open">⤢</span></button>
+      <div class="globeHint">Tap the globe to open it big, then tap countries to shortlist or cross them out.</div>
       <div class="chips" id="chips"></div>
     </div>
   </section>
@@ -213,6 +231,18 @@
     <div class="card" id="card"></div>
   </section>
 </main>
+
+<dialog class="globeDlg" id="globeDlg" aria-label="Explore your hunches">
+  <div class="dlgHead"><b>Explore your hunches</b><button type="button" class="icon ghost" data-close>✕</button></div>
+  <div class="bigWrap">
+    <canvas id="bigGlobe"></canvas>
+    <div class="globeTip" id="globeTip" hidden></div>
+    <div class="zoomG"><button type="button" class="icon" id="zoomInG" title="Zoom in">+</button><button type="button" class="icon" id="zoomOutG" title="Zoom out">−</button></div>
+  </div>
+  <div class="globeSel" id="globeSel"></div>
+  <div class="chips" id="bigChips"></div>
+  <div class="legend"><span><i style="background:#f1c86b"></i>shortlisted</span><span><i style="background:#d6d7d5"></i>crossed out</span><span><i style="background:#e9a39a"></i>guessed wrong</span><span class="muted">drag to spin · scroll or +/− to zoom</span></div>
+</dialog>
 
 <dialog class="holdDlg" id="holdDlg">
   <h3 id="holdTitle"></h3>
@@ -713,100 +743,185 @@ function drawOutline() {
 }
 
 // ---------- Notes globe ----------
-const canvas = $('globe'), gctx = canvas.getContext('2d');
-const gProj = d3.geoOrthographic().clipAngle(90).precision(1.5);
-const gPath = d3.geoPath(gProj, gctx);
-let gRot = [-10, -25], gTween = null, gSize = 230, gDirty = true;
-function sizeGlobe() {
-  const dpr = Math.min(2, window.devicePixelRatio || 1);
-  canvas.width = gSize * dpr; canvas.height = gSize * dpr;
-  canvas.style.width = canvas.style.height = gSize + 'px';
-  gctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  gProj.translate([gSize / 2, gSize / 2]).scale(gSize / 2 - 4);
-  gDirty = true;
-}
+// One renderer, two views: the small globe beside the guest, and a big one that opens in the middle of the
+// screen when you tap the small one. Both show the same notes (shortlisted, crossed out, wrong guesses).
+const MARK_FILL = { short: '#f1c86b', out: '#d6d7d5', wrong: '#e9a39a', answer: '#7fcfa1' };
 const globeHome = () => { const t = guesses().find(g => !g.ok); return t ? W.byName(t.name).center : [10, 25]; };
 function markOf(c) {
   if (G?.done && c === G.guest.c) return 'answer';
   if (revealed() >= 8 && c === G.guest.c) return 'answer';
   return G?.marks[c.name] || null;
 }
-const MARK_FILL = { short: '#f1c86b', out: '#d6d7d5', wrong: '#e9a39a', answer: '#7fcfa1' };
-function drawGlobe() { gDirty = true; }
-function paintGlobe() {
-  gProj.rotate(gRot);
-  gctx.clearRect(0, 0, gSize, gSize);
-  const r = gSize / 2 - 4;
-  const sea = gctx.createRadialGradient(gSize * .38, gSize * .34, r * .1, gSize / 2, gSize / 2, r);
+
+function makeGlobe(canvas, size, big = false) {
+  const ctx = canvas.getContext('2d');
+  const proj = d3.geoOrthographic().clipAngle(90).precision(big ? .8 : 1.5);
+  const v = { canvas, ctx, proj, path: d3.geoPath(proj, ctx), rot: [-10, -25], zoom: 1, size, big, dirty: true, tween: null, hover: null, selected: null };
+  v.resize = s => {
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    v.size = s;
+    canvas.width = Math.round(s * dpr); canvas.height = Math.round(s * dpr);
+    canvas.style.width = canvas.style.height = s + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    v.dirty = true;
+  };
+  v.resize(size);
+  return v;
+}
+const small = makeGlobe($('globe'), 230);
+const big = makeGlobe($('bigGlobe'), 600, true);
+const views = [small, big];
+function drawGlobe() { for (const v of views) v.dirty = true; }
+const facing = (v, ll) => d3.geoDistance(ll, [-v.rot[0], -v.rot[1]]) < Math.PI / 2 - .02;
+
+function paintGlobe(v) {
+  const { ctx, proj, path, size } = v, r = (size / 2 - 4) * v.zoom;
+  proj.translate([size / 2, size / 2]).scale(r).rotate(v.rot);
+  const geo = c => (v.big && v.zoom > 1.8 ? c.feature : c.lo);
+  ctx.clearRect(0, 0, size, size);
+  const sea = ctx.createRadialGradient(size * .38, size * .34, r * .1, size / 2, size / 2, r);
   sea.addColorStop(0, '#ffffff'); sea.addColorStop(1, '#e7e8e6');
-  gctx.beginPath(); gPath({ type: 'Sphere' }); gctx.fillStyle = sea; gctx.fill();
-  gctx.beginPath();
-  for (const c of W.countries) if (!markOf(c)) gPath(c.lo);
-  gctx.fillStyle = '#fbfbfa'; gctx.fill();
+  ctx.beginPath(); path({ type: 'Sphere' }); ctx.fillStyle = sea; ctx.fill();
+  if (v.big) { ctx.beginPath(); path(d3.geoGraticule10()); ctx.strokeStyle = 'rgba(0,0,0,.05)'; ctx.lineWidth = .6; ctx.stroke(); }
+  ctx.beginPath();
+  for (const c of W.countries) if (!markOf(c)) path(geo(c));
+  ctx.fillStyle = '#fbfbfa'; ctx.fill();
   for (const c of W.countries) {
     const m = markOf(c);
     if (!m) continue;
-    gctx.beginPath(); gPath(c.lo); gctx.fillStyle = MARK_FILL[m]; gctx.fill();
+    ctx.beginPath(); path(geo(c)); ctx.fillStyle = MARK_FILL[m]; ctx.fill();
   }
-  gctx.beginPath(); gPath(borderLo); gctx.strokeStyle = '#9da1a5'; gctx.lineWidth = .45; gctx.stroke();
-  gctx.beginPath();
-  for (const c of W.countries) if (!loByName.has(c.raw)) gPath(c.feature);
-  gctx.stroke();
-  gctx.beginPath(); gPath({ type: 'Sphere' }); gctx.strokeStyle = '#8c9094'; gctx.lineWidth = 1; gctx.stroke();
+  ctx.beginPath(); path(borderLo); ctx.strokeStyle = '#9da1a5'; ctx.lineWidth = v.big ? .6 : .45; ctx.stroke();
+  ctx.beginPath();
+  for (const c of W.countries) if (!loByName.has(c.raw)) path(c.feature);
+  ctx.stroke();
+  for (const [c, colour, w] of [[v.hover, '#6c7177', 1.6], [v.selected, '#1d2024', 2.4]]) {
+    if (!c) continue;
+    ctx.beginPath(); path(geo(c)); ctx.strokeStyle = colour; ctx.lineWidth = w; ctx.stroke();
+  }
+  ctx.beginPath(); path({ type: 'Sphere' }); ctx.strokeStyle = '#8c9094'; ctx.lineWidth = 1; ctx.stroke();
+
+  const label = (c, text, dy = 0) => {
+    if (!facing(v, c.center)) return;
+    const p = proj(c.center);
+    ctx.font = `600 ${v.big ? 13 : 11}px Hanken Grotesk, sans-serif`; ctx.textAlign = 'center';
+    ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.strokeText(text, p[0], p[1] + dy);
+    ctx.fillStyle = '#1d2024'; ctx.fillText(text, p[0], p[1] + dy);
+  };
+  // On the big globe, name the countries you've made notes on.
+  if (v.big && G) for (const [n, m] of Object.entries(G.marks)) { const c = W.byName(n); if (c && m !== 'out') label(c, (m === 'short' ? '★ ' : '') + c.name); }
   // Pin the answer once it's known.
-  if (G && (G.done || revealed() >= 8)) {
-    const c = G.guest.c, p = gProj(c.center);
-    if (p && d3.geoDistance(c.center, [-gRot[0], -gRot[1]]) < Math.PI / 2) {
-      gctx.beginPath(); gctx.arc(p[0], p[1], 5, 0, Math.PI * 2); gctx.fillStyle = '#e8782e'; gctx.fill();
-      gctx.lineWidth = 2; gctx.strokeStyle = '#fff'; gctx.stroke();
-      gctx.font = '600 11px Hanken Grotesk, sans-serif'; gctx.fillStyle = '#1d2024'; gctx.textAlign = 'center';
-      gctx.fillText(c.name, p[0], p[1] - 10);
-    }
+  if (G && (G.done || revealed() >= 8) && facing(v, G.guest.c.center)) {
+    const p = proj(G.guest.c.center);
+    ctx.beginPath(); ctx.arc(p[0], p[1], v.big ? 7 : 5, 0, Math.PI * 2); ctx.fillStyle = '#e8782e'; ctx.fill();
+    ctx.lineWidth = 2; ctx.strokeStyle = '#fff'; ctx.stroke();
+    label(G.guest.c, G.guest.c.name, -12);
   }
 }
+
 function globeLoop(t) {
-  if (gTween) {
-    const k = Math.min(1, (t - gTween.t0) / 900);
-    gRot = gTween.i(d3.easeCubicInOut(k));
-    if (k >= 1) gTween = null;
-    gDirty = true;
+  for (const v of views) {
+    if (v.tween) {
+      const k = Math.min(1, (t - v.tween.t0) / 900);
+      v.rot = v.tween.i(d3.easeCubicInOut(k));
+      if (k >= 1) v.tween = null;
+      v.dirty = true;
+    }
+    if (v.dirty && (v === small || $('globeDlg').open)) { paintGlobe(v); v.dirty = false; }
   }
-  if (gDirty) { paintGlobe(); gDirty = false; }
   requestAnimationFrame(globeLoop);
 }
 function rotateTo([lon, lat]) {
-  const from = gRot.slice(), to = [-lon, Math.max(-60, Math.min(60, -lat))];
-  while (to[0] - from[0] > 180) to[0] -= 360;
-  while (to[0] - from[0] < -180) to[0] += 360;
-  gTween = { i: d3.interpolate(from, to), t0: performance.now() };
+  for (const v of views) {
+    const from = v.rot.slice(), to = [-lon, Math.max(-60, Math.min(60, -lat))];
+    while (to[0] - from[0] > 180) to[0] -= 360;
+    while (to[0] - from[0] < -180) to[0] += 360;
+    v.tween = { i: d3.interpolate(from, to), t0: performance.now() };
+  }
 }
-let moved = 0;
-d3.select(canvas).call(d3.drag()
-  .on('start', () => { gTween = null; moved = 0; canvas.classList.add('grabbing'); })
-  .on('drag', e => { moved += Math.abs(e.dx) + Math.abs(e.dy); gRot = [gRot[0] + e.dx * .5, Math.max(-85, Math.min(85, gRot[1] - e.dy * .5))]; gDirty = true; })
-  .on('end', e => {
-    canvas.classList.remove('grabbing');
-    if (moved > 4 || !G) return;
-    // A tap: find the country under the pointer and cycle its note.
-    const [x, y] = d3.pointer(e.sourceEvent, canvas);
-    const ll = gProj.invert([x, y]);
-    if (!ll || d3.geoDistance(ll, [-gRot[0], -gRot[1]]) > Math.PI / 2) return;
-    const c = W.playable.find(c => d3.geoContains(c.lo, ll)) || W.playable.find(c => d3.geoContains(c.feature, ll));
-    if (!c || G.marks[c.name] === 'wrong') return;
-    const next = { undefined: 'short', short: 'out', out: undefined }[G.marks[c.name]];
-    if (next) G.marks[c.name] = next; else delete G.marks[c.name];
-    save(); paintChips(); drawGlobe();
-  }));
+function countryAt(v, x, y) {
+  const ll = v.proj.invert([x, y]);
+  if (!ll || !facing(v, ll)) return null;
+  return W.playable.find(c => d3.geoContains(c.lo, ll)) || W.playable.find(c => d3.geoContains(c.feature, ll)) || null;
+}
+// Drag to spin (slower when zoomed in); a tap without dragging calls onTap.
+function bindDrag(v, onTap) {
+  let moved = 0;
+  d3.select(v.canvas).call(d3.drag()
+    .on('start', () => { v.tween = null; moved = 0; v.canvas.classList.add('grabbing'); })
+    .on('drag', e => {
+      moved += Math.abs(e.dx) + Math.abs(e.dy);
+      const k = 57 / ((v.size / 2) * v.zoom);
+      v.rot = [v.rot[0] + e.dx * k, Math.max(-85, Math.min(85, v.rot[1] - e.dy * k))];
+      v.dirty = true;
+    })
+    .on('end', e => {
+      v.canvas.classList.remove('grabbing');
+      if (moved > 4 || !G) return;
+      const [x, y] = d3.pointer(e.sourceEvent, v.canvas);
+      onTap(countryAt(v, x, y));
+    }));
+}
+bindDrag(small, () => openBigGlobe());
+bindDrag(big, c => { big.selected = c; big.dirty = true; renderSel(); });
+
+// Big globe: hover names, wheel zoom, and a panel for the tapped country.
+let hoverRaf = 0;
+big.canvas.addEventListener('pointermove', e => {
+  if (e.buttons) return;
+  cancelAnimationFrame(hoverRaf);
+  hoverRaf = requestAnimationFrame(() => {
+    const r = big.canvas.getBoundingClientRect(), c = countryAt(big, e.clientX - r.left, e.clientY - r.top);
+    const tip = $('globeTip');
+    if (c !== big.hover) { big.hover = c; big.dirty = true; }
+    tip.hidden = !c;
+    if (c) { tip.textContent = c.name; tip.style.left = (e.clientX - r.left + 14) + 'px'; tip.style.top = (e.clientY - r.top + 10) + 'px'; }
+  });
+});
+big.canvas.addEventListener('pointerleave', () => { big.hover = null; big.dirty = true; $('globeTip').hidden = true; });
+big.canvas.addEventListener('wheel', e => { e.preventDefault(); big.zoom = Math.max(1, Math.min(8, big.zoom * Math.exp(-e.deltaY * .0015))); big.dirty = true; }, { passive: false });
+$('zoomInG').onclick = () => { big.zoom = Math.min(8, big.zoom * 1.5); big.dirty = true; };
+$('zoomOutG').onclick = () => { big.zoom = Math.max(1, big.zoom / 1.5); big.dirty = true; };
+
+function bigSize() { return Math.max(260, Math.min(window.innerWidth - 48, window.innerHeight - 250, 720)); }
+function openBigGlobe() {
+  big.rot = small.rot.slice(); big.tween = null; big.zoom = 1; big.selected = null; big.hover = null;
+  big.resize(bigSize());
+  renderSel(); paintChips();
+  $('globeDlg').showModal();
+}
+function setMark(c, m) {
+  if (!G || !c || G.marks[c.name] === 'wrong') return;
+  if (G.marks[c.name] === m) delete G.marks[c.name]; else G.marks[c.name] = m;
+  save(); paintChips(); drawGlobe(); renderSel();
+}
+function renderSel() {
+  const c = big.selected, box = $('globeSel');
+  if (!c) { box.innerHTML = '<span class="muted">Tap a country to make a note or guess it.</span>'; return; }
+  const m = G?.marks[c.name], tried = guesses().some(g => g.name === c.name);
+  box.innerHTML = `<b>${escapeHtml(c.name)}</b>
+    ${m === 'wrong' ? '<span class="muted">Already guessed: not it.</span>' : `
+      <button type="button" class="pill ${m === 'short' ? 'dark' : ''}" data-m="short">★ ${m === 'short' ? 'Shortlisted' : 'Shortlist'}</button>
+      <button type="button" class="pill ${m === 'out' ? 'dark' : ''}" data-m="out">✕ ${m === 'out' ? 'Crossed out' : 'Cross out'}</button>`}
+    ${!G.done && !tried ? `<button type="button" class="pill dark" id="guessSel">Guess ${escapeHtml(c.name)} →</button>` : ''}`;
+  box.querySelectorAll('[data-m]').forEach(b => b.onclick = () => setMark(c, b.dataset.m));
+  $('guessSel')?.addEventListener('click', () => { $('globeDlg').close(); choose(c); openHold(c); });
+}
 
 function paintChips() {
-  const entries = Object.entries(G.marks).sort((a, b) => ({ short: 0, out: 1, wrong: 2 }[a[1]] - { short: 0, out: 1, wrong: 2 }[b[1]]));
-  $('chips').innerHTML = entries.map(([n, m]) => `<button type="button" class="${m}" data-n="${escapeHtml(n)}" title="${m === 'short' ? 'Shortlisted: tap to guess it' : m === 'wrong' ? 'Already guessed' : 'Crossed out'}">${escapeHtml(n)}</button>`).join('');
-  $('chips').querySelectorAll('button').forEach(b => b.onclick = () => {
-    const c = W.byName(b.dataset.n);
-    if (!c) return;
-    rotateTo(c.center);
-    if (!G.done && G.marks[c.name] === 'short' && $('cInput')) choose(c);
-  });
+  const order = { short: 0, out: 1, wrong: 2 };
+  const entries = Object.entries(G.marks).sort((a, b) => order[a[1]] - order[b[1]]);
+  const html = entries.map(([n, m]) => `<button type="button" class="${m}" data-n="${escapeHtml(n)}" title="${m === 'short' ? 'Shortlisted' : m === 'wrong' ? 'Already guessed' : 'Crossed out'}">${escapeHtml(n)}</button>`).join('');
+  for (const id of ['chips', 'bigChips']) {
+    $(id).innerHTML = html;
+    $(id).querySelectorAll('button').forEach(b => b.onclick = () => {
+      const c = W.byName(b.dataset.n);
+      if (!c) return;
+      rotateTo(c.center);
+      if (id === 'bigChips') { big.selected = c; big.dirty = true; renderSel(); }
+      else if (!G.done && G.marks[c.name] === 'short' && $('cInput')) choose(c);
+    });
+  }
 }
 
 // ---------- Stats & archive ----------
@@ -846,9 +961,13 @@ $('statsBtn').onclick = openStats;
 $('helpBtn').onclick = () => $('helpDlg').showModal();
 for (const b of document.querySelectorAll('[data-close]')) b.onclick = () => b.closest('dialog').close();
 for (const d of document.querySelectorAll('dialog')) d.addEventListener('click', e => { if (e.target === d) d.close(); });
-window.addEventListener('resize', () => { const w = Math.min(230, canvas.parentElement.clientWidth || 230); if (w !== gSize) { gSize = w; sizeGlobe(); } });
+$('openGlobe').onclick = openBigGlobe;
+window.addEventListener('resize', () => {
+  const w = Math.min(230, small.canvas.parentElement.clientWidth || 230);
+  if (w !== small.size) small.resize(w);
+  if ($('globeDlg').open) big.resize(bigSize());
+});
 
-sizeGlobe();
 requestAnimationFrame(globeLoop);
 if (!GUESTS.length) document.body.insertAdjacentHTML('afterbegin', '<p style="padding:20px">No guests found.</p>');
 else startDay(todayIndex());
