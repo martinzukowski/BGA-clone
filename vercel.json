@@ -1,20 +1,47 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
-  "installCommand": "echo 'No root dependencies - each game installs its own during the build'",
+  "installCommand": "npm install",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "trailingSlash": true,
+  "functions": {
+    "api/deep-cut-judge.js": {
+      "includeFiles": "brain-games/deep-cut/data/**",
+      "maxDuration": 15
+    }
+  },
   "redirects": [
-    { "source": "/poker", "destination": "/high-rollers/holdem/", "permanent": true },
-    { "source": "/poker/(.*)", "destination": "/high-rollers/holdem/$1", "permanent": true },
-    { "source": "/globle", "destination": "/brain-games/globle/", "permanent": true },
-    { "source": "/globle/(.*)", "destination": "/brain-games/globle/$1", "permanent": true }
+    {
+      "source": "/poker",
+      "destination": "/high-rollers/holdem/",
+      "permanent": true
+    },
+    {
+      "source": "/poker/(.*)",
+      "destination": "/high-rollers/holdem/$1",
+      "permanent": true
+    },
+    {
+      "source": "/globle",
+      "destination": "/brain-games/globle/",
+      "permanent": true
+    },
+    {
+      "source": "/globle/(.*)",
+      "destination": "/brain-games/globle/$1",
+      "permanent": true
+    }
   ],
   "headers": [
     {
       "source": "/(.*)/assets/(.*)",
-      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
     }
   ]
 }

@@ -56,6 +56,14 @@ Deep Cut's prompts live in [`brain-games/deep-cut/data/`](brain-games/deep-cut/d
 theme. Each answer is written `Name/Alias=tier`, where tier 1 is what most people say first and
 5 is a real deep cut. To add a prompt, add an entry to one of those files.
 
+Guesses that aren't on a prompt's list go to an AI judge, [`api/deep-cut-judge.js`](api/deep-cut-judge.js)
+(a Vercel function using Claude Haiku). It decides whether the guess is a listed answer under another
+name, a real answer the list is missing (with a rarity tier), or wrong. It needs `ANTHROPIC_API_KEY` set
+in the Vercel project; optionally `DEEP_CUT_MODEL` to pick another model, and Vercel's Upstash Redis
+integration (`KV_REST_API_URL`, `KV_REST_API_TOKEN`) to remember verdicts across deploys. Without a key,
+Deep Cut works as before. To try it locally: `npm install`, `npm run build`, then
+`ANTHROPIC_API_KEY=... npm run preview`.
+
 Chaindle's puzzles live in [`brain-games/chaindle/data/puzzles.js`](brain-games/chaindle/data/puzzles.js):
 `pairs` (rounds 1–3), `triples` (round 4) and `singles` (round 5, closest relative). Each answer is
 written `Word/Alias=links`, from 1 (a stretch) to 5 (a perfect link).

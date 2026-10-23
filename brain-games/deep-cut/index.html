@@ -354,6 +354,7 @@
     <span class="tier t5">ABYSSAL</span><em>almost nobody says it</em><strong class="t5">85</strong>
   </div>
   <p><b>Today's Dive</b> is seven prompts, the same all day. <b>Endless Dive</b> goes on until you time out or pass three times.</p>
+  <p>Answers aren't limited to our list: if yours isn't on it, a judge checks whether it really counts, and how rare it is.</p>
   <p>No hints: you have to come up with the answer yourself. If a guess is only a few letters off a real answer, you'll get a "did you mean…?" to fix the spelling.</p>
   <p style="color:var(--muted)">Typos, accents, plurals and "the" don't matter. Answers are checked against built-in lists, so now and then a real answer might be missing.</p>
 </dialog>
@@ -644,19 +645,52 @@ function tickTimer() {
   raf = requestAnimationFrame(loop);
 }
 
-function submitGuess() {
-  if (answered) return;
+// ---------- The answer judge ----------
+// Guesses that aren't on the list go to /api/deep-cut-judge/ (an AI check, see api/deep-cut-judge.js): it
+// says whether the guess is a listed answer under another name, a real answer we don't have, or wrong.
+// Where there's no judge (opened from disk, or no API key on the server) guesses just miss as before.
+let judgeOff = false, judging = false;
+async function askJudge(prompt, guess) {
+  if (judgeOff || location.protocol === 'file:') return null;
+  const ctrl = new AbortController(), timer = setTimeout(() => ctrl.abort(), 8000);
+  try {
+    const r = await fetch('/api/deep-cut-judge/', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: prompt.id, guess }), signal: ctrl.signal,
+    });
+    if (r.status === 404 || r.status === 405 || r.status === 503 && (await r.clone().json().catch(() => ({}))).error === 'judge not configured') judgeOff = true;
+    return r.ok ? await r.json() : null;
+  } catch { return null; } finally { clearTimeout(timer); }
+}
+
+async function submitGuess() {
+  if (answered || judging) return;
   const input = $('answer');
   const guess = input.value.trim();
   if (!guess) return;
   const hit = judge(current, guess);
   if (hit) return finishPrompt({ hit, guess }, false);
+  const dym = $('dym');
+  if (!misses.some(m => squash(m) === squash(guess)) && !judgeOff) {
+    judging = true;
+    dym.hidden = false; dym.onclick = null;
+    dym.textContent = 'checking with the judge…';
+    const v = await askJudge(current, guess);
+    judging = false;
+    dym.hidden = true;
+    if (answered) return;   // the clock ran out while we waited
+    const listed = v?.verdict === 'match' && current.answers.find(a => a.name === v.answer);
+    if (listed) return finishPrompt({ hit: listed, guess }, false);
+    if (v?.verdict === 'new' && v.answer) {
+      const extra = { name: v.answer, names: [v.answer], keys: [squash(v.answer)], tier: Math.min(5, Math.max(1, +v.tier || 4)), judged: true };
+      return finishPrompt({ hit: extra, guess }, false);
+    }
+  }
   if (!misses.some(m => squash(m) === squash(guess))) {
     misses.push(guess);
     $('misses').insertAdjacentHTML('beforeend', `<span>${escapeHtml(guess)}</span>`);
   }
   const close = spellingMatches(current, guess);
-  const dym = $('dym');
   dym.hidden = !close.length;
   dym.innerHTML = close.length ? `did you mean ${close.map((a, i) => `<button type="button" data-i="${i}">${escapeHtml(a.name)}</button>`).join(' ')}?` : '';
   dym.onclick = e => { const b = e.target.closest('button'); if (b) pickAnswer(close[+b.dataset.i]); };
@@ -693,7 +727,7 @@ function finishPrompt(res, passed) {
     pts = TIER_POINTS[tier] + Math.round(SPEED_BONUS * left / (ROUND_SECONDS * 1000));
   } else if (mode === 'endless') lives--;
   score += pts;
-  results.push({ id: current.id, q: current.q, answer: name, tier, pts });
+  results.push({ id: current.id, q: current.q, answer: name, tier, pts, said: res ? res.guess : null, judged: !!res?.hit.judged });
   idx++;
   if (mode === 'daily') store.set('daily', { day: todayIndex(), results, done: false });
 
@@ -727,6 +761,8 @@ function renderReveal(r, passed) {
         ? `<div class="word">${escapeHtml(r.answer)}</div>
            <div class="pts t${r.tier}">+${r.pts}<small> PTS</small></div>
            <span class="tier t${r.tier}">${TIER_NAMES[r.tier]}</span>
+           ${r.judged ? '<div class="got">not on our list, but the judge says it counts</div>'
+             : r.said && squash(r.said) !== squash(r.answer) ? `<div class="got">you said “${escapeHtml(r.said)}”</div>` : ''}
            <div class="scale"><div class="steps">${[1, 2, 3, 4, 5].map(k => `<i style="--sc:var(--t${k})" data-k="${k}"></i>`).join('')}</div><div class="ends"><span>OBVIOUS</span><span>ABYSSAL</span></div></div>`
         : `<div class="word miss">${passed ? 'PASSED' : "TIME'S UP"}</div>
            <div class="got">${mode === 'endless' ? (lives > 0 ? `${lives} ${lives === 1 ? 'life' : 'lives'} left` : 'out of air!') : 'no points this time'}</div>`}
