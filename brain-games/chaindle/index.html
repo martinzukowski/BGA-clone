@@ -183,7 +183,7 @@
     <li><b>Round 4:</b> three words, one link for all of them. <i>car + wheel + human → driver</i></li>
     <li><b>Round 5:</b> one word, type its closest relative. <i>video → footage</i></li>
   </ol>
-  <p>You get <b>one guess per round</b>. Each round is worth up to <b>1,000</b> points, 5,000 in all. A word we can't link to scores 0 for that round. Typos and plurals are forgiven.</p>
+  <p>You get <b>one guess per round</b>. Each round is worth up to <b>1,000</b> points, 5,000 in all. Any common English word counts: it's scored by how closely it relates to each word, and only the one true link makes a perfect chain. Typos and plurals are forgiven; other forms of a given word (mount → mountain) aren't allowed.</p>
   <p style="color:var(--soft)">The daily puzzle is the same for everyone and changes at midnight. Want more? <b>Practice</b> deals five fresh rounds every time you replay.</p>
 </dialog>
 
@@ -279,6 +279,42 @@ function judge(puzzle, guess) {
   return best;
 }
 const scoreFor = a => a.pts;
+
+// ---------- Word vectors ----------
+// Any common word can score, not just the hand-written answers. data/vocab.json lists ~30,000 words and
+// data/vec/<word>.bin holds, for one shown word, a byte per vocab word (255 = its closest relative),
+// built from GloVe word vectors by scripts/chaindle-vectors.py. A guess scores whichever is higher:
+// its hand-written entry or its vectors. Only the designed answer can make a perfect chain.
+const VEC_CAP = 950;
+let vocabP = null;
+const tables = new Map();   // shown word -> Promise<Uint8Array | null>
+function loadVocab() {
+  vocabP ||= fetch('data/vocab.json').then(r => (r.ok ? r.json() : [])).then(list => new Map(list.map((w, i) => [w, i]))).catch(() => new Map());
+  return vocabP;
+}
+function loadTable(word) {
+  const w = word.toLowerCase();
+  if (!tables.has(w)) tables.set(w, fetch(`data/vec/${encodeURIComponent(w)}.bin`).then(r => (r.ok ? r.arrayBuffer() : null)).then(b => b && new Uint8Array(b)).catch(() => null));
+  return tables.get(w);
+}
+const preload = p => Promise.all([loadVocab(), ...p.words.map(loadTable)]);
+async function vectorHit(p, guess) {
+  const g = guess.trim().toLowerCase();
+  if (!/^[a-z]+(-[a-z]+)*$/.test(g)) return null;
+  const [vocab, ...tabs] = await preload(p);
+  const idx = vocab.get(g) ?? vocab.get(singular(g));
+  if (idx == null || tabs.some(t => !t)) return null;
+  // Each word gets a small floor (like a 1-link hand-written answer) so one strong side still scores.
+  const raw = tabs.map(t => t[idx] / 255), vals = raw.map(v => Math.max(.08, v)), n = vals.length;
+  const balance = n > 1 ? (Math.min(...vals) / Math.max(...vals)) ** .35 : 1;
+  const pts = Math.min(VEC_CAP, Math.round(ROUND_MAX * vals.reduce((sum, v) => sum + v, 0) / n * balance));
+  return pts >= 20 ? { name: g, links: raw.map(v => Math.round(v * 5)), pts } : null;
+}
+// Other forms of a shown word don't count (mount -> mountain, rain -> rainy).
+const tooClose = (p, k) => p.words.some(w => {
+  const sw = squash(w);
+  return k === sw || singular(k) === sw || (sw.length >= 4 && k.length >= 4 && (k.startsWith(sw) || sw.startsWith(k)));
+});
 
 // ---------- Which puzzles today ----------
 // Each pool is shuffled once with a fixed seed and dealt out in order, so nothing repeats until a pool runs out.
@@ -546,18 +582,23 @@ function showRound() {
   input.value = ''; input.disabled = false; $('linkBtn').disabled = false;
   input.placeholder = p.kind === 'singles' ? 'its closest relative…' : 'your word…';
   $('entry').hidden = false; $('hint1').hidden = false;
+  preload(p);
   setTimeout(() => input.focus(), 30);
 }
 
 // One guess per round: whatever you link is final.
-function submit() {
-  if (locked) return;
+let checking = false;
+async function submit() {
+  if (locked || checking) return;
   const p = byId(ids[round]);
   const input = $('guess'), guess = input.value.trim();
   if (!guess) return;
   const k = squash(guess);
-  if (p.shown.has(k) || p.shown.has(singular(k))) { $('note').textContent = "That's one of the given words. Try another!"; input.select(); return; }
-  finish(judge(p, guess), guess);
+  if (tooClose(p, k)) { $('note').textContent = "That's too close to one of the given words. Try another!"; input.select(); return; }
+  checking = true; $('linkBtn').disabled = true;
+  const listed = judge(p, guess), vec = await vectorHit(p, guess);
+  checking = false;
+  finish([listed, vec].filter(Boolean).sort((a, b) => b.pts - a.pts)[0] || null, guess);
 }
 
 function finish(hit, guess) {
