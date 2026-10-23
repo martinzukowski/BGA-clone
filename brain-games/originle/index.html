@@ -62,6 +62,13 @@
   .globeDlg::backdrop { background: rgba(243,243,241,.7); backdrop-filter: blur(6px); }
   .globeDlg .dlgHead b { font-family: var(--serif); font-weight: 500; font-size: 26px; }
   .bigWrap { position: relative; display: flex; justify-content: center; margin: 4px 0 10px; }
+  .gSearch { position: relative; max-width: 360px; margin: 2px auto 6px; }
+  .gSearch input[type=text] { background: #fff; border: 1px solid var(--rule); border-radius: 999px; padding: 9px 16px; font-size: 15px; font-weight: 500; }
+  .gSearch input[type=text]:focus { border-color: var(--ink); box-shadow: 0 0 0 4px rgba(29,32,36,.06); }
+  .gSearch ul { position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 30; list-style: none; margin: 0; padding: 6px; background: #fff; border: 1px solid var(--rule); border-radius: 14px; box-shadow: 0 18px 40px rgba(0,0,0,.12); max-height: 260px; overflow-y: auto; }
+  .gSearch li { padding: 8px 10px; border-radius: 9px; cursor: pointer; display: flex; justify-content: space-between; gap: 8px; }
+  .gSearch li small { color: var(--soft); }
+  .gSearch li.on, .gSearch li:hover { background: #f1f1ef; }
   #bigGlobe { display: block; cursor: grab; touch-action: none; }
   #bigGlobe.grabbing { cursor: grabbing; }
   .globeTip { position: absolute; pointer-events: none; background: var(--ink); color: #fff; font-size: 13px; font-weight: 600; padding: 4px 9px; border-radius: 8px; white-space: nowrap; }
@@ -234,6 +241,10 @@
 
 <dialog class="globeDlg" id="globeDlg" aria-label="Explore your hunches">
   <div class="dlgHead"><b>Explore your hunches</b><button type="button" class="icon ghost" data-close>✕</button></div>
+  <div class="gSearch">
+    <input type="text" id="gSearch" placeholder="Search for a country…" autocomplete="off" spellcheck="false" role="combobox" aria-autocomplete="list" aria-controls="gList" aria-expanded="false">
+    <ul id="gList" role="listbox" hidden></ul>
+  </div>
   <div class="bigWrap">
     <canvas id="bigGlobe"></canvas>
     <div class="globeTip" id="globeTip" hidden></div>
@@ -780,18 +791,18 @@ function paintGlobe(v) {
   const geo = c => (v.big && v.zoom > 1.8 ? c.feature : c.lo);
   ctx.clearRect(0, 0, size, size);
   const sea = ctx.createRadialGradient(size * .38, size * .34, r * .1, size / 2, size / 2, r);
-  sea.addColorStop(0, '#ffffff'); sea.addColorStop(1, '#e7e8e6');
+  sea.addColorStop(0, '#d6ecfb'); sea.addColorStop(1, '#8dbfe4');
   ctx.beginPath(); path({ type: 'Sphere' }); ctx.fillStyle = sea; ctx.fill();
-  if (v.big) { ctx.beginPath(); path(d3.geoGraticule10()); ctx.strokeStyle = 'rgba(0,0,0,.05)'; ctx.lineWidth = .6; ctx.stroke(); }
+  if (v.big) { ctx.beginPath(); path(d3.geoGraticule10()); ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = .6; ctx.stroke(); }
   ctx.beginPath();
   for (const c of W.countries) if (!markOf(c)) path(geo(c));
-  ctx.fillStyle = '#fbfbfa'; ctx.fill();
+  ctx.fillStyle = '#fdfcf8'; ctx.fill();
   for (const c of W.countries) {
     const m = markOf(c);
     if (!m) continue;
     ctx.beginPath(); path(geo(c)); ctx.fillStyle = MARK_FILL[m]; ctx.fill();
   }
-  ctx.beginPath(); path(borderLo); ctx.strokeStyle = '#9da1a5'; ctx.lineWidth = v.big ? .6 : .45; ctx.stroke();
+  ctx.beginPath(); path(borderLo); ctx.strokeStyle = '#8f979e'; ctx.lineWidth = v.big ? .6 : .45; ctx.stroke();
   ctx.beginPath();
   for (const c of W.countries) if (!loByName.has(c.raw)) path(c.feature);
   ctx.stroke();
@@ -799,7 +810,7 @@ function paintGlobe(v) {
     if (!c) continue;
     ctx.beginPath(); path(geo(c)); ctx.strokeStyle = colour; ctx.lineWidth = w; ctx.stroke();
   }
-  ctx.beginPath(); path({ type: 'Sphere' }); ctx.strokeStyle = '#8c9094'; ctx.lineWidth = 1; ctx.stroke();
+  ctx.beginPath(); path({ type: 'Sphere' }); ctx.strokeStyle = '#6f9fc6'; ctx.lineWidth = 1; ctx.stroke();
 
   const label = (c, text, dy = 0) => {
     if (!facing(v, c.center)) return;
@@ -888,6 +899,7 @@ function openBigGlobe() {
   big.rot = small.rot.slice(); big.tween = null; big.zoom = 1; big.selected = null; big.hover = null;
   big.resize(bigSize());
   renderSel(); paintChips();
+  $('gSearch').value = ''; hideGList();
   $('globeDlg').showModal();
 }
 function setMark(c, m) {
@@ -923,6 +935,59 @@ function paintChips() {
     });
   }
 }
+
+// Search on the big globe: type a country (or a nickname like "USA"), pick it, and the globe flies there.
+function countryMatches(text) {
+  const n = BrainCountries.norm(text);
+  if (!n) return [];
+  const found = new Map();
+  for (const c of W.playable) {
+    const k = BrainCountries.norm(c.name);
+    const s = k.startsWith(n) ? 0 : k.split(' ').some(w => w.startsWith(n)) ? 1 : n.length > 2 && k.includes(n) ? 3 : -1;
+    if (s >= 0) found.set(c, [s, null]);
+  }
+  for (const [key, alias, c] of W.aliases) if (key.startsWith(n) && (!found.has(c) || found.get(c)[0] > 2)) found.set(c, [2, alias]);
+  return [...found].sort((a, b) => a[1][0] - b[1][0] || a[0].name.localeCompare(b[0].name)).slice(0, 8).map(([c, [, alias]]) => ({ c, alias }));
+}
+let gHits = [], gAct = -1;
+function paintGList() {
+  const ul = $('gList');
+  if (!gHits.length) return hideGList();
+  ul.innerHTML = gHits.map((h, i) => `<li role="option" data-i="${i}" class="${i === gAct ? 'on' : ''}"><span>${escapeHtml(h.c.name)}</span>${h.alias ? `<small>${escapeHtml(h.alias)}</small>` : ''}</li>`).join('');
+  ul.hidden = false;
+  $('gSearch').setAttribute('aria-expanded', 'true');
+}
+function hideGList() { $('gList').hidden = true; $('gSearch').setAttribute('aria-expanded', 'false'); }
+function flyTo(c) {
+  // Zoom in enough to see small countries, then spin there and select it.
+  const area = d3.geoArea(c.feature);
+  big.zoom = area < 5e-4 ? 5 : area < 4e-3 ? 3 : area < 0.03 ? 1.8 : 1;
+  rotateTo(c.center);
+  big.selected = c; big.dirty = true;
+  renderSel();
+  $('gSearch').value = c.name;
+  hideGList();
+}
+$('gSearch').addEventListener('input', () => { gHits = countryMatches($('gSearch').value); gAct = gHits.length ? 0 : -1; paintGList(); });
+$('gSearch').addEventListener('blur', () => setTimeout(hideGList, 150));
+$('gSearch').addEventListener('keydown', e => {
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    if (!gHits.length) return;
+    e.preventDefault();
+    gAct = e.key === 'ArrowDown' ? (gAct + 1) % gHits.length : (gAct <= 0 ? gHits.length - 1 : gAct - 1);
+    paintGList();
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    const c = gHits[Math.max(0, gAct)]?.c || W.byName($('gSearch').value);
+    if (c) flyTo(c);
+  } else if (e.key === 'Escape' && !$('gList').hidden) { e.preventDefault(); hideGList(); }
+});
+$('gList').addEventListener('mousedown', e => {
+  const li = e.target.closest('li[data-i]');
+  if (!li) return;
+  e.preventDefault();
+  flyTo(gHits[+li.dataset.i].c);
+});
 
 // ---------- Stats & archive ----------
 function recordDay() {
