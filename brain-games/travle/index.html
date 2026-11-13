@@ -1,0 +1,475 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Travle · Brain Games</title>
+<meta name="description" content="Travel from one country to another by naming every country in between, in as few guesses as you can.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/brain.css">
+<style>
+  :root {
+    --start: #e0607e;
+    --end: #2f9e8f;
+    --perfect: #2f9e62;
+    --good: #7cc46b;
+    --close: #f0a33a;
+    --far: #d9534f;
+    --grey: #b7bec8;
+    --sea: #d6ecfb;
+  }
+  header.bar h1 .logo { background: linear-gradient(90deg, #e0607e, #2f9e8f); -webkit-background-clip: text; background-clip: text; color: transparent; font-weight: 900; }
+  main { max-width: 720px; margin: 0 auto; padding: 0 16px 40px; }
+  .tabs { display: flex; justify-content: center; gap: 6px; margin: 2px 0 10px; }
+  .tabs button { border-radius: 999px; padding: 6px 16px; }
+  .tabs button.on { background: var(--text); border-color: var(--text); color: var(--panel); }
+
+  .route { text-align: center; font-size: clamp(19px, 4.6vw, 24px); font-weight: 700; margin: 6px 0 4px; }
+  .route b { font-weight: 900; }
+  .route .s { color: var(--start); } .route .e { color: var(--end); }
+  .sub { text-align: center; color: var(--muted); font-weight: 600; font-size: 14px; margin-bottom: 10px; }
+
+  .mapBox { position: relative; overflow: hidden; border-radius: 18px; background: var(--sea); border: 1px solid var(--border); box-shadow: var(--shadow); }
+  #map { display: block; width: 100%; height: auto; touch-action: none; cursor: grab; }
+  #map .grat { fill: none; stroke: rgba(255,255,255,.7); stroke-width: .6; }
+  #map .c { stroke: #fff; stroke-width: .8; vector-effect: non-scaling-stroke; transition: fill .3s; }
+  #map .c.new { animation: appear .6s ease-out; }
+  @keyframes appear { from { opacity: 0; } }
+  #map .hintO { fill: rgba(255,255,255,.35); stroke: #6b7a90; stroke-width: 1.4; stroke-dasharray: 5 4; vector-effect: non-scaling-stroke; }
+  #map text { font: 800 12px Nunito, sans-serif; fill: var(--text); paint-order: stroke; stroke: rgba(255,255,255,.9); stroke-width: 3px; text-anchor: middle; pointer-events: none; }
+  .zoomBtns { position: absolute; right: 10px; top: 10px; display: flex; flex-direction: column; gap: 6px; }
+  .legend { position: absolute; left: 10px; bottom: 8px; display: flex; gap: 10px; flex-wrap: wrap; font-size: 11px; font-weight: 700; color: var(--muted); background: rgba(255,255,255,.75); border-radius: 8px; padding: 3px 8px; }
+  .legend i { display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
+
+  .entry { display: flex; gap: 8px; margin-top: 14px; }
+  .combo { position: relative; flex: 1; }
+  .combo ul { position: absolute; left: 0; right: 0; bottom: calc(100% + 6px); z-index: 20; list-style: none; margin: 0; padding: 6px; background: #fff; border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow-lg); max-height: 260px; overflow-y: auto; }
+  .combo li { padding: 8px 10px; border-radius: 9px; cursor: pointer; display: flex; justify-content: space-between; gap: 8px; font-weight: 700; }
+  .combo li small { color: var(--muted); font-weight: 600; }
+  .combo li.on, .combo li:hover { background: var(--panel-soft); }
+  .entry .primary { flex: none; min-width: 120px; }
+  .note { text-align: center; min-height: 1.4em; margin-top: 8px; font-weight: 700; font-size: 14px; color: var(--muted); }
+  .note.err { color: var(--err); }
+
+  .hints { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; margin-top: 12px; }
+  .hints span { font-size: 13px; font-weight: 800; color: var(--muted); }
+  .hints button { font-size: 13px; padding: 6px 12px; border-radius: 999px; }
+  .initials { text-align: center; margin-top: 8px; font-weight: 800; letter-spacing: 2px; color: var(--accent); min-height: 1.2em; }
+
+  .guesses { list-style: none; padding: 0; margin: 14px 0 0; display: flex; flex-direction: column; gap: 6px; }
+  .guesses li { display: grid; grid-template-columns: 28px 1fr auto; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 12px; background: var(--panel); border: 1px solid var(--border); font-weight: 700; animation: rise .35s ease-out both; }
+  .guesses li .em { font-size: 18px; text-align: center; }
+  .guesses li .why { font-size: 12px; color: var(--muted); font-weight: 600; }
+  .guesses li.off { opacity: .72; }
+
+  .result { text-align: center; padding: 18px; margin-top: 14px; animation: pop .35s ease-out; }
+  .result h2 { margin: 0; font-size: 26px; font-weight: 900; }
+  .result .emo { font-size: 22px; letter-spacing: 3px; margin: 8px 0; }
+  .result p { margin: 4px 0; color: var(--muted); font-weight: 600; }
+  .result .acts { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .result .path { font-weight: 800; color: var(--text); }
+  dialog li { margin-bottom: 6px; }
+  .key { display: grid; grid-template-columns: 26px 1fr; gap: 6px 8px; align-items: center; margin: 10px 0; }
+</style>
+</head>
+<body>
+<header class="bar">
+  <h1>🧭 <span class="logo">Travle</span> <small>country to country</small></h1>
+  <div class="spacer"></div>
+  <button class="icon" id="helpBtn" type="button" title="How to play">?</button>
+  <button class="icon" id="statsBtn" type="button" title="Statistics">📊</button>
+</header>
+
+<main>
+  <div class="tabs">
+    <button type="button" id="dailyTab" class="on">Daily</button>
+    <button type="button" id="practiceTab">Practice</button>
+  </div>
+  <div class="route" id="route"></div>
+  <div class="sub" id="sub"></div>
+
+  <div class="mapBox">
+    <svg id="map" viewBox="0 0 640 420" aria-label="Map of the route so far"></svg>
+    <div class="zoomBtns"><button class="icon" type="button" id="zIn" title="Zoom in">+</button><button class="icon" type="button" id="zOut" title="Zoom out">−</button></div>
+    <div class="legend"><span><i style="background:var(--start)"></i>start</span><span><i style="background:var(--end)"></i>end</span><span><i style="background:var(--grey)"></i>not linked yet</span></div>
+  </div>
+
+  <div id="play">
+    <form class="entry" id="entry" autocomplete="off">
+      <div class="combo">
+        <input type="text" id="guess" placeholder="Name a country on the way…" spellcheck="false" role="combobox" aria-autocomplete="list" aria-controls="list" aria-expanded="false">
+        <ul id="list" role="listbox" hidden></ul>
+      </div>
+      <button class="primary big" type="submit" id="goBtn">Guess</button>
+    </form>
+    <div class="note" id="note"></div>
+    <div class="hints"><span id="hintCount">Hints (0/3)</span>
+      <button type="button" data-h="next">Next country's outline</button>
+      <button type="button" data-h="all">All outlines</button>
+      <button type="button" data-h="initials">Country initials</button>
+    </div>
+    <div class="initials" id="initials"></div>
+  </div>
+  <section class="panel result" id="result" hidden></section>
+  <ul class="guesses" id="guesses"></ul>
+</main>
+
+<dialog id="helpDlg">
+  <div class="dlgHead"><b>How to play</b><button type="button" class="icon ghost" data-close>✕</button></div>
+  <p>Travel from the <b style="color:var(--start)">start</b> country to the <b style="color:var(--end)">end</b> country by naming every country you'd walk through on the way. You win once your countries join the two up, so try to do it in as few guesses as possible.</p>
+  <div class="key">
+    <span>✅</span><span><b>Perfect:</b> gets you closer, and joins up with your route from the start.</span>
+    <span>🟩</span><span><b>Good:</b> gets you closer, but isn't joined to your route yet.</span>
+    <span>🟧</span><span><b>Close:</b> doesn't get you closer, but it's at most one country off the best route.</span>
+    <span>🟥</span><span><b>Detour:</b> takes you well off course.</span>
+  </div>
+  <p>Countries that aren't joined to the start yet show grey on the map. You get the shortest route's length plus a few spare guesses. Up to three hints are free, but they show on your result.</p>
+  <p style="color:var(--muted)"><b>Borders:</b> land borders count, and so do bridges and tunnels (Channel Tunnel, Øresund Bridge, the Bahrain and Singapore causeways). Exclaves don't: Kaliningrad doesn't join Russia to Poland, French Guiana doesn't join France to Brazil, and Gaza doesn't join Egypt to the rest of Palestine.</p>
+</dialog>
+
+<dialog id="statsDlg">
+  <div class="dlgHead"><b>Statistics</b><button type="button" class="icon ghost" data-close>✕</button></div>
+  <div class="stats" id="statsBody"></div>
+</dialog>
+<div class="toast" id="toast"></div>
+
+<script src="../shared/brain.js"></script>
+<script src="../globle/lib/d3.min.js"></script>
+<script src="../globle/lib/topojson-client.min.js"></script>
+<script src="../globle/lib/countries-50m.js"></script>
+<script src="../shared/countries.js"></script>
+<script>
+const FIRST_DAY = dayNumber(new Date(2026, 10, 13));   // Travle #1
+const store = makeStore('travle:');
+const escapeHtml = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+const todayIndex = () => dayNumber() - FIRST_DAY;
+
+// ---------- The border graph ----------
+// Countries are neighbours when their shapes touch on the map, with a few fixes so the graph follows the
+// "could you walk it?" rule: exclaves don't connect, bridges, tunnels and causeways do.
+const W = BrainCountries.build(window.WORLD);
+const NODES = W.playable;
+const K = new Map(NODES.map((c, k) => [c, k]));
+const NO_LINK = [
+  ['France', 'Brazil'], ['France', 'Suriname'],              // French Guiana
+  ['Russia', 'Poland'], ['Russia', 'Lithuania'],             // Kaliningrad
+  ['Azerbaijan', 'Turkey'],                                  // Nakhchivan
+  ['Angola', 'Republic of the Congo'],                       // Cabinda
+  ['Palestine', 'Egypt'],                                    // Gaza isn't joined to the West Bank
+];
+const EXTRA_LINK = [
+  ['France', 'United Kingdom'],     // Channel Tunnel
+  ['Denmark', 'Sweden'],            // Øresund Bridge
+  ['Bahrain', 'Saudi Arabia'],      // King Fahd Causeway
+  ['Singapore', 'Malaysia'],        // Johor–Singapore Causeway
+];
+const ADJ = NODES.map(c => new Set(W.neighbors[c.i].map(j => W.countries[j]).filter(x => K.has(x)).map(x => K.get(x))));
+const pairKey = (a, b) => [a, b].sort().join('|');
+const banned = new Set(NO_LINK.map(([a, b]) => pairKey(a, b)));
+NODES.forEach((c, a) => { for (const b of [...ADJ[a]]) if (banned.has(pairKey(c.name, NODES[b].name))) ADJ[a].delete(b); });
+for (const [x, y] of EXTRA_LINK) { const a = K.get(W.byName(x)), b = K.get(W.byName(y)); ADJ[a].add(b); ADJ[b].add(a); }
+
+// Draw each country without its far-flung overseas parts (French Guiana, Réunion, Hawaii…), which would
+// otherwise zoom the map out to half the world. Parts within ~4,000 km of the mainland stay (Alaska, Corsica).
+for (const c of NODES) {
+  const g = c.feature.geometry;
+  c.shape = g && g.type === 'MultiPolygon'
+    ? { type: 'Feature', geometry: { type: 'MultiPolygon', coordinates: g.coordinates.filter(poly => d3.geoDistance(d3.geoCentroid({ type: 'Polygon', coordinates: poly }), c.center) < .65) } }
+    : c.feature;
+}
+
+// Fewest unguessed countries needed between two places, given what's already guessed (0-1 BFS over
+// countries: stepping onto a guessed country, or the start/end, is free). Returns distances and parents.
+function sweep(from, free) {
+  const dist = new Array(NODES.length).fill(Infinity), parent = new Array(NODES.length).fill(-1);
+  const dq = [from]; dist[from] = 0;
+  while (dq.length) {
+    const v = dq.shift();
+    for (const w of ADJ[v]) {
+      const step = free.has(w) ? 0 : 1, d = dist[v] + step;
+      if (d < dist[w]) { dist[w] = d; parent[w] = v; if (step) dq.push(w); else dq.unshift(w); }
+    }
+  }
+  return { dist, parent };
+}
+// How many more countries you still need: the end costs nothing to "enter".
+function remaining(P, guessed) {
+  const free = new Set([...guessed, P.s, P.e]);
+  return sweep(P.s, free).dist[P.e];
+}
+// One shortest route from start to end given the guesses so far, as the unguessed countries in order.
+function routeLeft(P, guessed) {
+  const free = new Set([...guessed, P.s, P.e]);
+  const { parent } = sweep(P.s, free);
+  const out = [];
+  for (let v = parent[P.e]; v !== -1 && v !== P.s; v = parent[v]) if (!free.has(v)) out.unshift(v);
+  return out;
+}
+const joinedToStart = (P, guessed) => {
+  const ok = new Set([P.s]), q = [P.s], have = new Set([...guessed, P.e]);
+  while (q.length) { const v = q.shift(); for (const w of ADJ[v]) if (have.has(w) && !ok.has(w)) { ok.add(w); q.push(w); } }
+  return ok;
+};
+
+// Grade a guess the way Travle does: does it cut the number of countries you still need?
+function grade(P, before, x) {
+  const was = remaining(P, before), now = remaining(P, [...before, x]);
+  if (now < was) return joinedToStart(P, [...before, x]).has(x) ? 'perfect' : 'good';
+  const free = new Set([...before, x, P.s, P.e]);
+  const through = sweep(P.s, free).dist[x] + sweep(P.e, free).dist[x];
+  return through <= was + 1 ? 'close' : 'far';
+}
+const EMOJI = { perfect: '✅', good: '🟩', close: '🟧', far: '🟥' };
+const WHY = { perfect: 'one step closer', good: 'on the way, not joined up yet', close: 'close, but no closer', far: 'a detour' };
+const COLOR = { perfect: 'var(--perfect)', good: 'var(--good)', close: 'var(--close)', far: 'var(--far)' };
+const spare = k => k <= 3 ? 4 : k <= 6 ? 5 : k <= 9 ? 6 : k <= 12 ? 7 : 8;
+
+// ---------- Puzzles ----------
+// Shortest route lengths between every pair, used to deal routes needing 2–8 countries in between.
+const HOPS = NODES.map((_, a) => sweep(a, new Set()).dist.map((d, b) => (b === a ? 0 : d)));
+function deal(rand) {
+  const lengths = [2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 6, 6, 7, 8];
+  for (let tries = 0; tries < 200; tries++) {
+    const k = lengths[Math.floor(rand() * lengths.length)];
+    const starts = NODES.map((_, a) => a).filter(a => HOPS[a].some(d => d === k + 1));
+    if (!starts.length) continue;
+    const s = starts[Math.floor(rand() * starts.length)];
+    const ends = HOPS[s].map((d, b) => [d, b]).filter(([d]) => d === k + 1).map(([, b]) => b);
+    const e = ends[Math.floor(rand() * ends.length)];
+    return { s, e, k };
+  }
+  return { s: K.get(W.byName('Spain')), e: K.get(W.byName('Austria')), k: 2 };
+}
+const dailyPuzzle = d => deal(seeded(20261113 + d * 7919));
+
+// ---------- State ----------
+let mode = 'daily', P = null, guesses = [], hints = [], done = false, won = false;
+const limit = () => P.k + spare(P.k);
+const guessedIdx = () => guesses.map(g => g.k);
+
+function save() {
+  if (mode !== 'daily') return;
+  store.set('daily', { day: todayIndex(), guesses: guesses.map(g => NODES[g.k].name), hints, done, won });
+}
+function startDaily() {
+  mode = 'daily';
+  P = dailyPuzzle(todayIndex());
+  const sv = store.get('daily', null);
+  guesses = []; hints = []; done = false; won = false;
+  if (sv && sv.day === todayIndex()) {
+    for (const n of sv.guesses) { const c = W.byName(n); if (c && K.has(c)) replayGuess(K.get(c)); }
+    hints = sv.hints || []; done = !!sv.done; won = !!sv.won;
+  }
+  begin();
+}
+function startPractice() {
+  mode = 'practice';
+  P = deal(Math.random);
+  guesses = []; hints = []; done = false; won = false;
+  begin();
+}
+function replayGuess(k) {
+  guesses.push({ k, grade: grade(P, guessedIdx(), k) });
+}
+
+function begin() {
+  $('dailyTab').classList.toggle('on', mode === 'daily');
+  $('practiceTab').classList.toggle('on', mode === 'practice');
+  $('route').innerHTML = `Travel from <b class="s">${escapeHtml(NODES[P.s].name)}</b> to <b class="e">${escapeHtml(NODES[P.e].name)}</b>`;
+  $('guess').value = ''; $('note').textContent = '';
+  fitMap(true);
+  paint();
+  if (!done) setTimeout(() => $('guess').focus(), 50);
+}
+
+// ---------- Guessing ----------
+function guess(c) {
+  if (done || !c) return;
+  const k = K.get(c);
+  if (k === P.s || k === P.e) return note(`${c.name} is where you ${k === P.s ? 'start' : 'finish'}.`, true);
+  if (guesses.some(g => g.k === k)) return note(`You already have ${c.name}.`, true);
+  const g = grade(P, guessedIdx(), k);
+  guesses.push({ k, grade: g });
+  $('guess').value = ''; hideList();
+  if (remaining(P, guessedIdx()) === 0) { done = true; won = true; }
+  else if (guesses.length >= limit()) { done = true; won = false; }
+  note(done ? '' : `${EMOJI[g]} ${c.name}: ${WHY[g]}.`);
+  save();
+  if (done) record();
+  fitMap(false);
+  paint();
+}
+function note(t, err = false) { $('note').textContent = t; $('note').className = 'note' + (err ? ' err' : ''); }
+
+function useHint(h) {
+  if (done || hints.includes(h) || hints.length >= 3) return;
+  hints.push(h);
+  save();
+  fitMap(false);
+  paint();
+}
+// Countries a hint shows, worked out from the guesses so far.
+function hinted() {
+  const left = routeLeft(P, guessedIdx());
+  const outl = hints.includes('all') ? left : hints.includes('next') ? left.slice(0, 1) : [];
+  return { outlines: outl, initials: hints.includes('initials') ? left : [] };
+}
+
+// ---------- Painting ----------
+function paint() {
+  const left = Math.max(0, limit() - guesses.length);
+  $('sub').textContent = done ? '' : `Shortest route: ${P.k} ${P.k === 1 ? 'country' : 'countries'} · guess ${guesses.length + 1} of ${limit()}`;
+  $('play').hidden = done;
+  $('hintCount').textContent = `Hints (${hints.length}/3)`;
+  document.querySelectorAll('.hints button').forEach(b => { b.disabled = hints.includes(b.dataset.h) || hints.length >= 3; });
+  const hi = hinted();
+  $('initials').textContent = hi.initials.length ? 'Route: ' + hi.initials.map(k => NODES[k].name[0] + '·').join(' ') : '';
+  const linked = joinedToStart(P, guessedIdx());
+  $('guesses').innerHTML = [...guesses].reverse().map(g => `<li class="${linked.has(g.k) ? '' : 'off'}"><span class="em">${EMOJI[g.grade]}</span><span>${escapeHtml(NODES[g.k].name)}</span><span class="why">${WHY[g.grade]}</span></li>`).join('');
+  drawMap();
+  paintResult();
+}
+
+function paintResult() {
+  const el = $('result');
+  el.hidden = !done;
+  if (!done) return;
+  const best = routeLeft(P, []);
+  const extra = guesses.length - P.k;
+  el.innerHTML = `<h2>${won ? (extra === 0 && hints.length === 0 ? 'Perfect route! 🎉' : 'You made it! 🧭') : 'Out of guesses'}</h2>
+    <div class="emo">${guesses.map(g => EMOJI[g.grade]).join('')}</div>
+    <p>${won ? `${guesses.length} guesses (shortest is ${P.k})` : `You used all ${limit()} guesses.`}${hints.length ? ` · ${hints.length} hint${hints.length > 1 ? 's' : ''}` : ''}</p>
+    <p>One shortest route: <span class="path">${[P.s, ...best, P.e].map(k => escapeHtml(NODES[k].name)).join(' → ')}</span></p>
+    <div class="acts">
+      ${mode === 'daily' ? '<button class="primary" id="shareBtn" type="button">Share</button>' : '<button class="primary" id="againBtn" type="button">New route</button>'}
+      <button type="button" id="otherBtn">${mode === 'daily' ? 'Practice' : 'Back to daily'}</button>
+    </div>`;
+  $('shareBtn')?.addEventListener('click', share);
+  $('againBtn')?.addEventListener('click', startPractice);
+  $('otherBtn').onclick = mode === 'daily' ? startPractice : startDaily;
+}
+
+// ---------- Map ----------
+const svg = d3.select('#map'), Wd = 640, Hd = 420;
+const layer = svg.append('g');
+const proj = d3.geoAzimuthalEquidistant();
+const path = d3.geoPath(proj);
+let shown = new Set();
+const zoom = d3.zoom().scaleExtent([1, 12]).on('zoom', e => layer.attr('transform', e.transform));
+svg.call(zoom);
+$('zIn').onclick = () => svg.transition().duration(250).call(zoom.scaleBy, 1.5);
+$('zOut').onclick = () => svg.transition().duration(250).call(zoom.scaleBy, 1 / 1.5);
+
+// Centre the map on everything visible (like Travle's azimuthal map) and fit it in the frame.
+function fitMap(reset) {
+  const hi = hinted();
+  const ks = [P.s, P.e, ...guessedIdx(), ...hi.outlines];
+  const fc = { type: 'FeatureCollection', features: ks.map(k => NODES[k].shape) };
+  const [cx, cy] = d3.geoCentroid(fc);
+  proj.rotate([-cx, -cy]).fitExtent([[30, 30], [Wd - 30, Hd - 30]], fc);
+  if (reset) { svg.call(zoom.transform, d3.zoomIdentity); shown = new Set(); }
+}
+function drawMap() {
+  const hi = hinted(), linked = joinedToStart(P, guessedIdx());
+  const items = [
+    ...guesses.map(g => ({ k: g.k, fill: linked.has(g.k) ? COLOR[g.grade] : 'var(--grey)' })),
+    { k: P.s, fill: 'var(--start)' }, { k: P.e, fill: 'var(--end)' },
+  ];
+  // Once the game ends, show one shortest route too.
+  const extra = done ? routeLeft(P, []).filter(k => !guesses.some(g => g.k === k)) : hi.outlines.filter(k => !guesses.some(g => g.k === k));
+  let html = `<path class="grat" d="${path(d3.geoGraticule10())}"/>`;
+  html += extra.map(k => `<path class="hintO" d="${path(NODES[k].shape)}"/>`).join('');
+  html += items.map(it => `<path class="c ${shown.has(it.k) ? '' : 'new'}" style="fill:${it.fill}" d="${path(NODES[it.k].shape)}"><title>${escapeHtml(NODES[it.k].name)}</title></path>`).join('');
+  // Tiny countries get a dot too, so they're easy to spot.
+  html += items.filter(it => path.area(NODES[it.k].shape) < 40).map(it => {
+    const p = proj(NODES[it.k].center);
+    return p ? `<circle class="c" cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="6" style="fill:${it.fill}"/>` : '';
+  }).join('');
+  const label = k => {
+    const p = proj(NODES[k].center), dy = path.area(NODES[k].shape) < 40 ? -10 : 4;
+    return p ? `<text x="${p[0].toFixed(1)}" y="${(p[1] + dy).toFixed(1)}">${escapeHtml(NODES[k].name)}</text>` : '';
+  };
+  html += items.map(it => label(it.k)).join('') + (done ? extra.map(label).join('') : '');
+  layer.html(html);
+  items.forEach(it => shown.add(it.k));
+}
+
+// ---------- Country search ----------
+let hits = [], act = -1;
+function matches(text) {
+  const n = BrainCountries.norm(text);
+  if (!n) return [];
+  const found = new Map();
+  for (const c of NODES) {
+    const k = BrainCountries.norm(c.name);
+    const s = k.startsWith(n) ? 0 : k.split(' ').some(w => w.startsWith(n)) ? 1 : n.length > 2 && k.includes(n) ? 3 : -1;
+    if (s >= 0) found.set(c, [s, null]);
+  }
+  for (const [key, alias, c] of W.aliases) if (key.startsWith(n) && (!found.has(c) || found.get(c)[0] > 2)) found.set(c, [2, alias]);
+  return [...found].sort((a, b) => a[1][0] - b[1][0] || a[0].name.localeCompare(b[0].name)).slice(0, 7).map(([c, [, alias]]) => ({ c, alias }));
+}
+function paintList() {
+  const ul = $('list');
+  if (!hits.length) return hideList();
+  ul.innerHTML = hits.map((h, i) => `<li role="option" data-i="${i}" class="${i === act ? 'on' : ''}"><span>${escapeHtml(h.c.name)}</span>${h.alias ? `<small>${escapeHtml(h.alias)}</small>` : ''}</li>`).join('');
+  ul.hidden = false; $('guess').setAttribute('aria-expanded', 'true');
+}
+function hideList() { $('list').hidden = true; $('guess').setAttribute('aria-expanded', 'false'); }
+$('guess').addEventListener('input', () => { hits = matches($('guess').value); act = hits.length ? 0 : -1; paintList(); note(''); });
+$('guess').addEventListener('blur', () => setTimeout(hideList, 150));
+$('guess').addEventListener('keydown', e => {
+  if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && hits.length) {
+    e.preventDefault();
+    act = e.key === 'ArrowDown' ? (act + 1) % hits.length : (act <= 0 ? hits.length - 1 : act - 1);
+    paintList();
+  } else if (e.key === 'Escape') hideList();
+});
+$('list').addEventListener('mousedown', e => { const li = e.target.closest('li[data-i]'); if (!li) return; e.preventDefault(); guess(hits[+li.dataset.i].c); });
+$('entry').addEventListener('submit', e => {
+  e.preventDefault();
+  const text = $('guess').value;
+  const c = (!$('list').hidden && hits[act]?.c) || W.byName(text);
+  if (c && K.has(c)) guess(c);
+  else if (text.trim()) note(`"${text.trim()}" isn't a country I know.`, true);
+});
+document.querySelectorAll('.hints button').forEach(b => b.onclick = () => useHint(b.dataset.h));
+
+// ---------- Stats & sharing ----------
+function record() {
+  if (mode !== 'daily') return;
+  const h = store.get('history', {});
+  if (h[todayIndex()] == null) { h[todayIndex()] = { won, extra: guesses.length - P.k, hints: hints.length }; store.set('history', h); }
+}
+function share() {
+  const text = `Travle #${todayIndex() + 1} 🧭 ${NODES[P.s].name} → ${NODES[P.e].name}\n${guesses.map(g => EMOJI[g.grade]).join('')}\n${won ? `${guesses.length}/${limit()}` : 'X/' + limit()}${hints.length ? ` · ${hints.length} hint${hints.length > 1 ? 's' : ''}` : ''}`;
+  const ok = () => toast('Copied to clipboard');
+  if (navigator.clipboard) navigator.clipboard.writeText(text).then(ok, () => prompt('Copy your result:', text));
+  else prompt('Copy your result:', text);
+}
+function openStats() {
+  const h = store.get('history', {});
+  const days = Object.keys(h).map(Number).sort((a, b) => a - b), recs = days.map(d => h[d]);
+  let streak = 0, d = todayIndex();
+  if (h[d] == null) d--;
+  while (h[d]?.won) { streak++; d--; }
+  const wins = recs.filter(r => r.won);
+  $('statsBody').innerHTML = [['Played', days.length], ['Won', days.length ? Math.round(100 * wins.length / days.length) + '%' : '–'],
+    ['Perfect', wins.filter(r => r.extra === 0 && !r.hints).length], ['Streak', streak]]
+    .map(([k, v]) => `<div><b>${v}</b><span>${k}</span></div>`).join('');
+  $('statsDlg').showModal();
+}
+
+// ---------- Wiring ----------
+$('dailyTab').onclick = startDaily;
+$('practiceTab').onclick = startPractice;
+$('helpBtn').onclick = () => $('helpDlg').showModal();
+$('statsBtn').onclick = openStats;
+for (const b of document.querySelectorAll('[data-close]')) b.onclick = () => b.closest('dialog').close();
+for (const dl of document.querySelectorAll('dialog')) dl.addEventListener('click', e => { if (e.target === dl) dl.close(); });
+
+startDaily();
+if (!store.get('seenHelp', false)) { store.set('seenHelp', true); setTimeout(() => $('helpDlg').showModal(), 400); }
+</script>
+</body>
+</html>

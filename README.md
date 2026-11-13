@@ -10,7 +10,7 @@ hub page linking to each.
 | **Imperium Mercatorum** | [`concordia/`](concordia) | Roman trading strategy vs 1–4 bots, inspired by *Concordia* |
 | **High Rollers** | [`high-rollers/`](high-rollers) | Casino lobby with four play-money games: Hold'em Night (no-limit Texas Hold'em vs 4 bots), Blackjack, Roulette and Liar's Dice |
 | **Tank Arena** | [`tank-arena/`](tank-arena) | 3D tank battles vs bots or friends online, with unlockable weapons and hulls |
-| **Brain Games** | [`brain-games/`](brain-games) | Puzzle lobby: Deep Cut (name a cheese, a dog breed… rarer answers score more), Chaindle (link two or three words with one of your own; stronger links score more), Originle (eight clues from a guest, guess which country they are from) and Globle (find the mystery country on a 3D globe) |
+| **Brain Games** | [`brain-games/`](brain-games) | Puzzle lobby: Deep Cut (name a cheese, a dog breed… rarer answers score more), Chaindle (link two or three words with one of your own; stronger links score more), Originle (eight clues from a guest, guess which country they are from), Travle (name the countries between a start and an end country) and Globle (find the mystery country on a 3D globe) |
 | **Rubik's Cube Solver** | [`rubiks-cube-solver/`](rubiks-cube-solver) | Scan a real cube with the webcam and get a step-by-step solution |
 
 Everything runs in the browser. There is no backend and no accounts; games keep their
@@ -65,6 +65,11 @@ each has a first name, a country (spelled as in [`brain-games/shared/countries.j
 and seven `[title, text]` clues from hardest to easiest; the game adds the eighth (the country's outline).
 Guests are drawn from their name, so how they look never hints at the answer. Originle reuses Globle's map
 data from `brain-games/globle/lib/`.
+
+Travle builds its border graph from the same map data (countries whose shapes touch), with a few fixes
+listed at the top of [`brain-games/travle/index.html`](brain-games/travle/index.html): exclaves don't
+connect (Kaliningrad, French Guiana, Nakhchivan, Cabinda, Gaza) and bridges, tunnels and causeways do.
+Daily routes are dealt from that graph with a seeded random generator, so there's no puzzle file.
 
 ## Deploy (Vercel, free)
 
