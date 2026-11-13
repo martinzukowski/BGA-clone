@@ -171,6 +171,8 @@
   .dym { margin-top: 10px; font-size: 19px; color: var(--yellow); display: flex; flex-wrap: wrap; gap: 6px; align-items: center; animation: pop .25s cubic-bezier(.2,1.6,.4,1) both; }
   .dym button { font: 20px VT323, monospace; color: #fff1c2; background: rgba(255,210,63,.1); border: 1px solid rgba(255,210,63,.55); padding: 0 9px; }
   .dym button:hover { background: rgba(255,210,63,.25); }
+  .dym button.pick { background: rgba(255,210,63,.28); border-color: var(--yellow); box-shadow: 0 0 10px rgba(255,210,63,.35); }
+  .dym small { font-size: 16px; color: var(--muted); }
   .pass { font-family: Silkscreen, monospace; font-size: 12px; letter-spacing: 2px; color: var(--muted); background: rgba(6,16,38,.7); border: 2px solid rgba(143,180,207,.35); padding: 15px 10px; }
   .pass:hover { color: #fff; border-color: #fff; }
 
@@ -600,6 +602,7 @@ function nextPrompt() {
   const card = $('card');
   const go = () => {
     current = byId(queue[idx]);
+    dymFor = dymPick = null;
     misses = []; answered = false;
     renderHud();
     card.className = 'card';
@@ -650,6 +653,8 @@ function tickTimer() {
 // says whether the guess is a listed answer under another name, a real answer we don't have, or wrong.
 // Where there's no judge (opened from disk, or no API key on the server) guesses just miss as before.
 let judgeOff = false, judging = false;
+// After a near miss, Enter (with the misspelled guess still in the box) takes the top "did you mean".
+let dymFor = null, dymPick = null;
 async function askJudge(prompt, guess) {
   if (judgeOff || location.protocol === 'file:') return null;
   const ctrl = new AbortController(), timer = setTimeout(() => ctrl.abort(), 8000);
@@ -668,6 +673,7 @@ async function submitGuess() {
   const input = $('answer');
   const guess = input.value.trim();
   if (!guess) return;
+  if (dymPick && squash(guess) === squash(dymFor)) return pickAnswer(dymPick);
   const hit = judge(current, guess);
   if (hit) return finishPrompt({ hit, guess }, false);
   const dym = $('dym');
@@ -692,7 +698,8 @@ async function submitGuess() {
   }
   const close = spellingMatches(current, guess);
   dym.hidden = !close.length;
-  dym.innerHTML = close.length ? `did you mean ${close.map((a, i) => `<button type="button" data-i="${i}">${escapeHtml(a.name)}</button>`).join(' ')}?` : '';
+  dymFor = close.length ? guess : null; dymPick = close[0] || null;
+  dym.innerHTML = close.length ? `did you mean ${close.map((a, i) => `<button type="button" data-i="${i}" class="${i ? '' : 'pick'}">${escapeHtml(a.name)}</button>`).join(' ')}? <small>press Enter</small>` : '';
   dym.onclick = e => { const b = e.target.closest('button'); if (b) pickAnswer(close[+b.dataset.i]); };
   const card = $('card');
   card.classList.remove('wrong'); void card.offsetWidth; card.classList.add('wrong');
