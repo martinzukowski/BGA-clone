@@ -35,26 +35,25 @@ function noiseAt(seed: string, i: number): number {
 
 /**
  * A qualitative palette for provinces — muted, painterly hues in the register
- * of an old trade chart, chosen so neighbours in a typical geographic
- * ordering rarely repeat. Assigned by province index, not by terrain, so a
- * mountain province and its coastal neighbour are never the same colour by
- * accident.
+ * of an old trade chart. Fourteen clearly different hues, so that
+ * `assignProvinceColors` can always find one that stands apart from every
+ * neighbour.
  */
 export const PROVINCE_PALETTE: readonly string[] = [
-  '#b5533a', // terracotta
-  '#4c6b7a', // steel blue
-  '#c79a3d', // ochre
-  '#5c7a4e', // olive
-  '#8a4f6b', // plum
-  '#3d7a72', // teal
-  '#a4632f', // sienna
-  '#6a5a8a', // slate lavender
-  '#b08a3f', // mustard
-  '#6f8f6a', // sage
-  '#9a4a4a', // brick red
-  '#4a6a8a', // denim
-  '#8a6a3a', // tan
-  '#5a7a8a', // slate teal
+  '#c0583c', // terracotta
+  '#2f7d79', // deep teal
+  '#d4a23a', // ochre
+  '#6a8a45', // olive
+  '#8e4d7a', // plum
+  '#4f7fa8', // steel blue
+  '#c4787f', // dusty rose
+  '#7a62a8', // violet
+  '#d27a35', // burnt orange
+  '#3f6b4a', // forest
+  '#a33f5b', // raspberry
+  '#3fa3a0', // turquoise
+  '#a89a4a', // khaki
+  '#4a4f94', // indigo
 ];
 
 export function provinceColor(index: number): string {
@@ -80,15 +79,65 @@ function mix(hex: string, target: string, amount: number): string {
 /** Light and dark stops for a province's fill gradient, from its base hue. */
 export function provinceTint(base: string): { light: string; dark: string; line: string } {
   return {
-    light: mix(base, '#fff6e0', 0.5),
-    dark: mix(base, '#140f08', 0.42),
-    line: mix(base, '#140f08', 0.62),
+    light: mix(base, '#fff6e0', 0.34),
+    dark: mix(base, '#140f08', 0.28),
+    line: mix(base, '#140f08', 0.6),
   };
+}
+
+/** A cheap perceptual colour distance ("redmean"), good enough to rank palette entries. */
+function colorDistance(a: string, b: string): number {
+  const x = hexToRgb(a);
+  const y = hexToRgb(b);
+  const rm = (x.r + y.r) / 2;
+  const dr = x.r - y.r;
+  const dg = x.g - y.g;
+  const db = x.b - y.b;
+  return Math.sqrt((2 + rm / 256) * dr * dr + 4 * dg * dg + (2 + (255 - rm) / 256) * db * db);
+}
+
+/**
+ * Colours the provinces so that no two that touch look alike.
+ *
+ * Greedy graph colouring: the most-connected provinces choose first, and each
+ * takes the palette entry whose *nearest* already-coloured neighbour is as far
+ * away as possible. Ties go to whichever entry has been used least, so the
+ * whole palette is spread across the board.
+ */
+export function assignProvinceColors(
+  ids: readonly string[],
+  neighbours: ReadonlyMap<string, ReadonlySet<string>>,
+): Map<string, number> {
+  const order = [...ids].sort(
+    (a, b) => (neighbours.get(b)?.size ?? 0) - (neighbours.get(a)?.size ?? 0) || a.localeCompare(b),
+  );
+  const chosen = new Map<string, number>();
+  const used = PROVINCE_PALETTE.map(() => 0);
+  for (const id of order) {
+    const around = [...(neighbours.get(id) ?? [])]
+      .map((n) => chosen.get(n))
+      .filter((c): c is number => c !== undefined);
+    let best = 0;
+    let bestScore = -Infinity;
+    PROVINCE_PALETTE.forEach((hex, index) => {
+      const gap = around.length
+        ? Math.min(...around.map((c) => colorDistance(hex, PROVINCE_PALETTE[c]!)))
+        : 1000;
+      const score = gap - used[index]! * 40;
+      if (score > bestScore) {
+        bestScore = score;
+        best = index;
+      }
+    });
+    chosen.set(id, best);
+    used[best]! += 1;
+  }
+  return chosen;
 }
 
 /* ───────────────────────────────────────────────── point-in-poly ── */
 
-function pointInPolygon(p: Point, poly: readonly Point[]): boolean {
+export function pointInPolygon(p: Point, poly: readonly Point[]): boolean {
   let inside = false;
   for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
     const a = poly[i]!;
@@ -97,49 +146,6 @@ function pointInPolygon(p: Point, poly: readonly Point[]): boolean {
     if (intersects) inside = !inside;
   }
   return inside;
-}
-
-/**
- * Scatters `count` points inside `hull`, keeping clear of `avoid` (city
- * markers, mainly) and of each other. Deterministic per `seed`; a province's
- * trees are always in the same clearing.
- */
-export function scatterPoints(
-  hull: readonly Point[],
-  seed: string,
-  count: number,
-  avoid: readonly Point[],
-  minDistFromAvoid = 40,
-  minDistFromEachOther = 26,
-): Point[] {
-  if (hull.length < 3 || count <= 0) return [];
-  const bounds = hull.reduce(
-    (b, p) => ({
-      minX: Math.min(b.minX, p.x),
-      maxX: Math.max(b.maxX, p.x),
-      minY: Math.min(b.minY, p.y),
-      maxY: Math.max(b.maxY, p.y),
-    }),
-    { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity },
-  );
-  const out: Point[] = [];
-  let i = 0;
-  let guard = 0;
-  const base = hashString(seed);
-  while (out.length < count && guard < count * 40) {
-    guard++;
-    const rx = pseudo(base + i * 131.7 + 11);
-    const ry = pseudo(base + i * 131.7 + 53.9);
-    i++;
-    const x = bounds.minX + rx * (bounds.maxX - bounds.minX);
-    const y = bounds.minY + ry * (bounds.maxY - bounds.minY);
-    const point = { x, y };
-    if (!pointInPolygon(point, hull)) continue;
-    if (avoid.some((a) => Math.hypot(a.x - x, a.y - y) < minDistFromAvoid)) continue;
-    if (out.some((o) => Math.hypot(o.x - x, o.y - y) < minDistFromEachOther)) continue;
-    out.push(point);
-  }
-  return out;
 }
 
 /* ────────────────────────────────────────────────── city variety ── */

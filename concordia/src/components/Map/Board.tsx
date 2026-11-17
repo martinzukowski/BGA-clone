@@ -6,7 +6,7 @@
  * rules; the components below only decide how that looks.
  */
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { CityNode } from '../City/CityNode';
 import { ColonistPiece } from '../Colonist/ColonistPiece';
@@ -14,15 +14,9 @@ import { RouteLine } from '../Route/RouteLine';
 import { MapDefs } from './MapDefs';
 import {
   cityMap,
-  centroid,
   fitViewport,
   COAST_WIDTH,
-  LAND_CAPITAL_RADIUS,
-  LAND_RADIUS,
-  LAND_ROAD_WIDTH,
   pointOnRoute,
-  provinceHull,
-  provinceOutline,
   routeGeometry,
   tangentOnRoute,
   zoomAt,
@@ -30,14 +24,8 @@ import {
   type RouteGeometry,
   type Viewport,
 } from './geometry';
-import {
-  cityVariant,
-  decorationCountFor,
-  PROVINCE_PALETTE,
-  provinceTint,
-  scatterPoints,
-  type TerrainKind,
-} from './terrain';
+import { buildLandscape, type Landscape } from './landscape';
+import { cityVariant, PROVINCE_PALETTE, provinceTint, type TerrainKind } from './terrain';
 import { getMap } from '../../game/data/maps';
 import { BONUS_MARKER_COIN_VALUES } from '../../game/data/ruleConstants';
 import {
@@ -51,7 +39,11 @@ import { speedFactor, useSettings } from '../../store/settings';
 import { GoodIcon } from '../Goods/GoodIcon';
 import { CoinIcon } from '../ui/Icons';
 import { MapTooltip } from './MapTooltip';
-import type { PlayerColorId } from '../../game/engine/types';
+import type { MapDefinition, PlayerColorId } from '../../game/engine/types';
+
+/** How far the province colour wash reaches from a city, and either side of a road. */
+const WASH_CITY_RADIUS = 146;
+const WASH_ROAD_WIDTH = 236;
 
 export function Board() {
   const game = useGame((s) => s.game);
@@ -70,6 +62,7 @@ export function Board() {
   const mapId = game?.mapId;
   const map = useMemo(() => (mapId ? getMap(mapId) : null), [mapId]);
   const cities = useMemo(() => (map ? cityMap(map) : {}), [map]);
+  const landscape = useMemo(() => (map ? buildLandscape(map) : null), [map]);
   const geometries = useMemo(() => {
     if (!map) return {} as Record<string, RouteGeometry>;
     const out: Record<string, RouteGeometry> = {};
@@ -83,7 +76,7 @@ export function Board() {
     if (!map || !hostRef.current) return;
     const rect = hostRef.current.getBoundingClientRect();
     setSize({ width: rect.width, height: rect.height });
-    setViewport(fitViewport(map, rect.width, rect.height, 26));
+    setViewport(fitViewport(map, rect.width, rect.height));
   }, [map]);
 
   useLayoutEffect(() => {
@@ -300,23 +293,7 @@ export function Board() {
     return out;
   }, [game]);
 
-  if (!game || !map) return null;
-
-  /**
-   * Province tints are generous blobs around each province's cities; they are
-   * then clipped to the coastline, so a province never bleeds into the water
-   * and an island province never grows a land bridge to its partner. Each is
-   * roughened with its own id as a seed, so the border reads as hand-inked
-   * rather than a plotted curve, and never changes shape between renders.
-   */
-  const provincePaths = map.provinces.map((p) =>
-    provinceOutline(
-      p.cityIds.map((id) => ({ x: cities[id]!.x, y: cities[id]!.y })),
-      LAND_RADIUS + 26,
-      p.id,
-      14,
-    ),
-  );
+  if (!game || !map || !landscape) return null;
 
   /** Cities touched by at least one sea lane — these read as ports. */
   const coastalCityIds = new Set<string>();
@@ -327,19 +304,6 @@ export function Board() {
     }
   }
   const provinceTerrainById = new Map(map.provinces.map((p) => [p.id, p.terrain]));
-
-  /**
-   * Small terrain glyphs scattered inside each province — mountains, pines,
-   * palms, waves — placed deterministically clear of every city marker.
-   */
-  const decorations = map.provinces.map((province) => {
-    const points = province.cityIds.map((id) => ({ x: cities[id]!.x, y: cities[id]!.y }));
-    const hull = provinceHull(points, LAND_RADIUS + 26);
-    const avoid = points;
-    const count = decorationCountFor(province.terrain as TerrainKind);
-    const spots = scatterPoints(hull, `${province.id}:deco`, count, avoid);
-    return { province, spots };
-  });
 
   return (
     <div
@@ -365,131 +329,79 @@ export function Board() {
         <rect width={size.width} height={size.height} fill="#0d2430" opacity="0.14" />
 
         <g transform={`translate(${viewport.x} ${viewport.y}) scale(${viewport.scale})`}>
-          {/*
-            ── landmass ─────────────────────────────────────
-            The continent is the union of a disc around every city and a band
-            along every road, so it follows exactly the geography the rules
-            use. It is drawn twice — oversized in the coastline tone, then
-            inset in parchment — and the difference between the two is the
-            coast. `landShapes` is reused verbatim as a mask, which is what
-            keeps the province tints on dry land.
-          */}
-          <defs>
-            <mask id="landMask" maskUnits="userSpaceOnUse" x={-600} y={-600} width={map.width + 1200} height={map.height + 1200}>
-              <rect x={-600} y={-600} width={map.width + 1200} height={map.height + 1200} fill="black" />
-              <g fill="white" stroke="white" strokeLinejoin="round" strokeLinecap="round">
-                {landShapes(map, geometries, 0)}
-              </g>
-            </mask>
-
-            {/* One gradient per province, so no two provinces share a colour
-                by coincidence — this is what makes each one legible at a
-                glance rather than reading as five repeated terrain washes. */}
-            {map.provinces.map((province, i) => {
-              const { light, dark } = provinceTint(PROVINCE_PALETTE[i % PROVINCE_PALETTE.length]!);
-              return (
-                <linearGradient key={province.id} id={`prov-${province.id}`} x1="0" y1="0" x2="0.65" y2="1">
-                  <stop offset="0%" stopColor={light} stopOpacity="0.68" />
-                  <stop offset="100%" stopColor={dark} stopOpacity="0.8" />
-                </linearGradient>
-              );
-            })}
-          </defs>
-
-          <g filter="url(#landShadow)">
-            <g fill="#8a7448" stroke="#8a7448" strokeLinejoin="round" strokeLinecap="round">
-              {landShapes(map, geometries, COAST_WIDTH)}
-            </g>
-          </g>
-          <g filter="url(#parchGrain)">
-            <g fill="url(#landFill)" stroke="url(#landFill)" strokeLinejoin="round" strokeLinecap="round">
-              {landShapes(map, geometries, 0)}
-            </g>
-          </g>
+          <StaticLand map={map} landscape={landscape} geometries={geometries} />
 
           {/* ── provinces ──────────────────────────────────── */}
-          <g mask="url(#landMask)">
-          {map.provinces.map((province, i) => {
-            // A spent province reads slightly greyer, so a glance at the board
-            // tells you where production is still available (RULES 6.2a).
-            const active = game.bonusMarkers[province.id]?.active ?? true;
-            const isLegal = legal.provinces.has(province.id);
-            const hovered = interaction.hoveredProvince === province.id;
-            return (
-              <g
-                key={province.id}
-                onMouseEnter={() => setInteraction({ hoveredProvince: province.id })}
-                onMouseLeave={() => setInteraction({ hoveredProvince: null })}
-                onClick={() => clickProvince(province.id)}
-                style={{ cursor: isLegal ? 'pointer' : 'inherit' }}
-              >
-                <path
-                  d={provincePaths[i]!}
-                  fill={`url(#prov-${province.id})`}
-                  opacity={hovered ? 0.95 : active ? 0.72 : 0.5}
-                  style={{
-                    transition: 'opacity 180ms ease, filter 220ms ease',
-                    filter: active ? undefined : 'saturate(0.45)',
-                  }}
-                />
-                {province.terrain === 'mountain' && <path d={provincePaths[i]!} fill="url(#hatchMountain)" />}
-                {province.terrain === 'desert' && <path d={provincePaths[i]!} fill="url(#hatchDesert)" />}
-                {province.terrain === 'inland' && <path d={provincePaths[i]!} fill="url(#hatchForest)" />}
-                {(province.terrain === 'coast' || province.terrain === 'island') && (
-                  <path d={provincePaths[i]!} fill="url(#hatchCoast)" />
-                )}
-                <path
-                  d={provincePaths[i]!}
-                  fill="none"
-                  stroke="#6d5a34"
-                  strokeWidth="1.5"
-                  strokeDasharray="7 6"
-                  opacity={hovered ? 0.85 : 0.45}
-                  filter="url(#inkEdge)"
-                />
-                {isLegal && (
-                  <path
-                    d={provincePaths[i]!}
-                    fill="#ffe0a0"
-                    opacity="0.3"
-                    className="legal-glow"
-                    pointerEvents="none"
-                  />
-                )}
-              </g>
-            );
-          })}
+          <g clipPath="url(#landClip)">
+            <g mask="url(#washMask)">
+              {map.provinces.map((province, i) => {
+                const lp = landscape.provinces[i]!;
+                // A spent province reads slightly greyer, so a glance at the board
+                // tells you where production is still available (RULES 6.2a).
+                const active = game.bonusMarkers[province.id]?.active ?? true;
+                const isLegal = legal.provinces.has(province.id);
+                const hovered = interaction.hoveredProvince === province.id;
+                return (
+                  <g
+                    key={province.id}
+                    onMouseEnter={() => setInteraction({ hoveredProvince: province.id })}
+                    onMouseLeave={() => setInteraction({ hoveredProvince: null })}
+                    onClick={() => clickProvince(province.id)}
+                    style={{ cursor: isLegal ? 'pointer' : 'inherit' }}
+                  >
+                    <path
+                      d={lp.path}
+                      fill={`url(#prov-${province.id})`}
+                      opacity={hovered ? 1 : active ? 0.9 : 0.55}
+                      style={{
+                        transition: 'opacity 180ms ease, filter 220ms ease',
+                        filter: active ? undefined : 'saturate(0.4)',
+                      }}
+                    />
+                    {province.terrain === 'mountain' && <path d={lp.path} fill="url(#hatchMountain)" />}
+                    {province.terrain === 'desert' && <path d={lp.path} fill="url(#hatchDesert)" />}
+                    {province.terrain === 'inland' && <path d={lp.path} fill="url(#hatchForest)" />}
+                    {(province.terrain === 'coast' || province.terrain === 'island') && (
+                      <path d={lp.path} fill="url(#hatchCoast)" />
+                    )}
+                    {isLegal && (
+                      <path d={lp.path} fill="#ffe0a0" opacity="0.32" className="legal-glow" pointerEvents="none" />
+                    )}
+                  </g>
+                );
+              })}
 
-          {/* ── terrain decoration ──────────────────────────── */}
-          {decorations.map(({ province, spots }) => (
-            <g key={`deco-${province.id}`} pointerEvents="none">
-              {spots.map((p, j) => (
-                <TerrainGlyph
-                  key={j}
-                  terrain={province.terrain as TerrainKind}
-                  x={p.x}
-                  y={p.y}
-                  scale={0.86 + ((j * 37) % 5) * 0.06}
-                />
-              ))}
+              {/* Roma belongs to no province; its district is left a warm parchment. */}
+              <path d={landscape.capitalPath} fill="#fbf0cf" opacity="0.62" pointerEvents="none" />
+
+              {/* Province borders: a pale halo under a dashed ink line, drawn once per border. */}
+              <g fill="none" strokeLinejoin="round" strokeLinecap="round" pointerEvents="none">
+                <path d={landscape.borderPath} stroke="#fbf2d8" strokeWidth="7" strokeOpacity="0.5" />
+                <path d={landscape.borderPath} stroke="#3f2e12" strokeWidth="2.6" strokeOpacity="0.85" strokeDasharray="11 5 3 5" />
+              </g>
+
+              {/* ── terrain decoration ──────────────────────────── */}
+              <g pointerEvents="none">
+                {landscape.decorations.map((d, i) => (
+                  <TerrainGlyph key={i} terrain={d.terrain} x={d.x} y={d.y} scale={d.scale} />
+                ))}
+              </g>
             </g>
-          ))}
           </g>
 
           {/* Province names sit outside the coastline mask so they are never
               clipped in half by a stretch of water. */}
           {map.provinces.map((province) => {
-            const pts = province.cityIds.map((id) => ({ x: cities[id]!.x, y: cities[id]!.y }));
             const c =
               province.labelX !== undefined && province.labelY !== undefined
                 ? { x: province.labelX, y: province.labelY }
-                : centroid(pts);
+                : landscape.labels.get(province.id)!;
             const hovered = interaction.hoveredProvince === province.id;
             return (
               <text
                 key={province.id}
                 x={c.x}
-                y={c.y - 46}
+                y={c.y}
                 textAnchor="middle"
                 className="no-select"
                 pointerEvents="none"
@@ -517,13 +429,15 @@ export function Board() {
           {map.provinces.map((province) => {
             const marker = game.bonusMarkers[province.id];
             if (!marker) return null;
-            const pts = province.cityIds.map((id) => ({ x: cities[id]!.x, y: cities[id]!.y }));
-            const c = centroid(pts);
+            const c =
+              province.labelX !== undefined && province.labelY !== undefined
+                ? { x: province.labelX, y: province.labelY }
+                : landscape.labels.get(province.id)!;
             return (
               <BonusMarker
                 key={province.id}
                 x={c.x}
-                y={c.y + 26}
+                y={c.y + 24}
                 good={marker.good}
                 active={marker.active}
               />
@@ -629,6 +543,106 @@ export function Board() {
   );
 }
 
+/**
+ * Everything under the provinces that never changes while a game is played:
+ * the sea marks, the shallows, the coast and the parchment itself. Memoised so
+ * that panning and zooming — which re-render the board every frame — do not
+ * re-diff thousands of path points.
+ */
+const StaticLand = memo(function StaticLand({
+  map,
+  landscape,
+  geometries,
+}: {
+  map: MapDefinition;
+  landscape: Landscape;
+  geometries: Record<string, RouteGeometry>;
+}) {
+  return (
+    <>
+    <defs>
+      <clipPath id="landClip">
+        <path d={landscape.landPath} clipRule="evenodd" />
+      </clipPath>
+
+      {/*
+        The colour wash is full strength along the road network and thins
+        to bare parchment further out, so provinces read as territories
+        around their cities rather than as the whole continent painted
+        in a dozen flat colours.
+      */}
+      <mask id="washMask" maskUnits="userSpaceOnUse" x={-800} y={-800} width={map.width + 1600} height={map.height + 1600}>
+        <rect x={-800} y={-800} width={map.width + 1600} height={map.height + 1600} fill="black" />
+        <g filter="url(#washFade)" fill="white" stroke="white" strokeLinecap="round" strokeLinejoin="round">
+          {map.routes
+            .filter((route) => route.type === 'land')
+            .map((route) => (
+              <path key={route.id} d={geometries[route.id]!.path} fill="none" strokeWidth={WASH_ROAD_WIDTH} />
+            ))}
+          {map.cities.map((city) => (
+            <circle key={city.id} cx={city.x} cy={city.y} r={WASH_CITY_RADIUS} strokeWidth={0} />
+          ))}
+        </g>
+      </mask>
+
+      <linearGradient id="landWash" gradientUnits="userSpaceOnUse" x1={0} y1={0} x2={map.width} y2={map.height}>
+        <stop offset="0%" stopColor="#f2e6cd" />
+        <stop offset="52%" stopColor="#e7d6b3" />
+        <stop offset="100%" stopColor="#d8c197" />
+      </linearGradient>
+
+      {/* One gradient per province. Colours come from `assignProvinceColors`,
+          which guarantees that provinces sharing a border never share a hue. */}
+      {landscape.provinces.map((lp) => {
+        const { light, dark } = provinceTint(PROVINCE_PALETTE[lp.colorIndex]!);
+        return (
+          <radialGradient
+            key={lp.id}
+            id={`prov-${lp.id}`}
+            gradientUnits="userSpaceOnUse"
+            cx={lp.centre.x}
+            cy={lp.centre.y}
+            r={240}
+          >
+            <stop offset="0%" stopColor={light} stopOpacity="0.86" />
+            <stop offset="100%" stopColor={dark} stopOpacity="0.92" />
+          </radialGradient>
+        );
+      })}
+    </defs>
+
+    {/* Small wave marks keep the open sea from reading as a flat fill. */}
+    <g pointerEvents="none">
+      {landscape.seaMarks.map((p, i) => (
+        <WaveGlyph key={i} x={p.x} y={p.y} scale={0.9 + ((i * 29) % 5) * 0.08} />
+      ))}
+    </g>
+
+    {/* Shallows: two widening, fainter bands of lighter water round the coast. */}
+    <g fill="none" stroke="#c4e6df" strokeLinejoin="round" strokeLinecap="round" pointerEvents="none">
+      <path d={landscape.landPath} fillRule="evenodd" strokeOpacity="0.12" strokeWidth={COAST_WIDTH * 2 + 56} />
+      <path d={landscape.landPath} fillRule="evenodd" strokeOpacity="0.18" strokeWidth={COAST_WIDTH * 2 + 22} />
+    </g>
+
+    {/* The coast: an oversized shape in the coastline tone, with the parchment
+        land drawn inside it — the difference between the two is the rim. */}
+    <g filter="url(#landShadow)">
+      <path
+        d={landscape.landPath}
+        fillRule="evenodd"
+        fill="#8a7448"
+        stroke="#8a7448"
+        strokeWidth={COAST_WIDTH * 2}
+        strokeLinejoin="round"
+      />
+    </g>
+    <g filter="url(#parchGrain)">
+      <path d={landscape.landPath} fillRule="evenodd" fill="url(#landWash)" />
+    </g>
+    </>
+  );
+});
+
 /* ────────────────────────────────────────────── bonus marker ── */
 
 function BonusMarker({
@@ -723,34 +737,6 @@ function ControlButton({
 }
 
 
-/**
- * The shapes whose union is the continent. `grow` inflates them, which is how
- * the coastline rim is produced without a second hand-authored outline.
- */
-function landShapes(
-  map: import('../../game/engine/types').MapDefinition,
-  geometries: Record<string, RouteGeometry>,
-  grow: number,
-): JSX.Element[] {
-  const out: JSX.Element[] = [];
-  for (const route of map.routes) {
-    if (route.type !== 'land') continue;
-    out.push(
-      <path
-        key={route.id}
-        d={geometries[route.id]!.path}
-        fill="none"
-        strokeWidth={LAND_ROAD_WIDTH + grow * 2}
-      />,
-    );
-  }
-  for (const city of map.cities) {
-    const r = (city.isCapital ? LAND_CAPITAL_RADIUS : LAND_RADIUS) + grow;
-    out.push(<circle key={city.id} cx={city.x} cy={city.y} r={r} strokeWidth={0} />);
-  }
-  return out;
-}
-
 /* ─────────────────────────────────────────────── terrain glyphs ── */
 
 /** Picks the right scattered glyph for a province's terrain. */
@@ -772,9 +758,6 @@ function TerrainGlyph({
       return <PalmGlyph x={x} y={y} scale={scale} />;
     case 'inland':
       return <PineGlyph x={x} y={y} scale={scale} />;
-    case 'coast':
-    case 'island':
-      return <WaveGlyph x={x} y={y} scale={scale} />;
     default:
       return <ScrubGlyph x={x} y={y} scale={scale} />;
   }
@@ -827,12 +810,12 @@ function PalmGlyph({ x, y, scale }: GlyphProps) {
   );
 }
 
-/** A gentle wave crest, for coast and island provinces. */
+/** A gentle wave crest, for open water. */
 function WaveGlyph({ x, y, scale }: GlyphProps) {
   return (
-    <g transform={`translate(${x} ${y}) scale(${scale})`} opacity="0.45">
-      <path d="M-8 0q4-4 8 0t8 0" fill="none" stroke="#3d6a7e" strokeWidth="1.4" strokeLinecap="round" />
-      <path d="M-6 4q4-4 8 0t8 0" fill="none" stroke="#3d6a7e" strokeWidth="1" strokeLinecap="round" opacity="0.6" />
+    <g transform={`translate(${x} ${y}) scale(${scale})`} opacity="0.42">
+      <path d="M-8 0q4-4 8 0t8 0" fill="none" stroke="#eef8f5" strokeWidth="1.4" strokeLinecap="round" />
+      <path d="M-6 4q4-4 8 0t8 0" fill="none" stroke="#eef8f5" strokeWidth="1" strokeLinecap="round" opacity="0.6" />
     </g>
   );
 }

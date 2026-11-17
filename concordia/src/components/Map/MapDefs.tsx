@@ -35,40 +35,24 @@ export const MapDefs = memo(function MapDefs() {
       </pattern>
 
       {/* ── parchment landmass ──────────────────────────────── */}
-      <linearGradient id="landFill" x1="0.1" y1="0" x2="0.8" y2="1">
-        <stop offset="0%" stopColor="#f2e6cd" />
-        <stop offset="52%" stopColor="#e7d6b3" />
-        <stop offset="100%" stopColor="#d8c197" />
-      </linearGradient>
-
-      {/*
-        Both the coastline-tone shadow shapes and the inset parchment fill run
-        through the *same* large-scale turbulence field (same baseFrequency
-        and seed), so the coast wobbles as one continuous hand-inked line
-        rather than the shadow and the fill drifting apart from each other.
-      */}
-      <filter id="landShadow" x="-15%" y="-15%" width="130%" height="130%">
-        <feTurbulence type="fractalNoise" baseFrequency="0.006" numOctaves="3" seed="21" result="wobbleField" />
-        <feDisplacementMap in="SourceGraphic" in2="wobbleField" scale="18" result="wobbled" />
-        <feDropShadow in="wobbled" dx="0" dy="5" stdDeviation="7" floodColor="#1b2b33" floodOpacity="0.45" />
+      {/* The coast is jagged in the geometry itself, so the filters only add depth and grain. */}
+      <filter id="landShadow" x="-5%" y="-5%" width="110%" height="110%">
+        <feDropShadow dx="0" dy="5" stdDeviation="7" floodColor="#1b2b33" floodOpacity="0.45" />
       </filter>
 
-      <filter id="parchGrain" x="-15%" y="-15%" width="130%" height="130%">
-        <feTurbulence type="fractalNoise" baseFrequency="0.006" numOctaves="3" seed="21" result="wobbleField" />
-        <feDisplacementMap in="SourceGraphic" in2="wobbleField" scale="18" result="wobbled" />
+      <filter id="parchGrain" x="-5%" y="-5%" width="110%" height="110%">
         <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4" seed="3" result="grain" />
         <feColorMatrix in="grain" type="saturate" values="0" result="gray" />
         <feComponentTransfer in="gray" result="soft">
           <feFuncA type="linear" slope="0.12" />
         </feComponentTransfer>
-        <feComposite in="soft" in2="wobbled" operator="in" result="grainOnly" />
-        <feBlend in="wobbled" in2="grainOnly" mode="multiply" />
+        <feComposite in="soft" in2="SourceGraphic" operator="in" result="grainOnly" />
+        <feBlend in="SourceGraphic" in2="grainOnly" mode="multiply" />
       </filter>
 
-      {/* A finer wobbling edge for province borders, so they look inked rather than plotted. */}
-      <filter id="inkEdge" x="-6%" y="-6%" width="112%" height="112%">
-        <feTurbulence type="fractalNoise" baseFrequency="0.03" numOctaves="3" seed="11" result="n" />
-        <feDisplacementMap in="SourceGraphic" in2="n" scale="3.2" />
+      {/* Softens the edge of the province colour wash, so it fades into bare parchment. */}
+      <filter id="washFade" x="-10%" y="-10%" width="120%" height="120%">
+        <feGaussianBlur stdDeviation="11" />
       </filter>
 
       {/* ── terrain washes ─────────────────────────────────── */}

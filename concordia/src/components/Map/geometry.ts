@@ -84,7 +84,7 @@ function approximateQuadraticLength(a: Point, c: Point, b: Point, steps = 16): n
   return total;
 }
 
-/* ────────────────────────────────────────────────────── provinces ── */
+/* ───────────────────────────────────────────────────── hulls & centres ── */
 
 /** Andrew's monotone chain. Returns the hull in counter-clockwise order. */
 export function convexHull(points: Point[]): Point[] {
@@ -111,108 +111,6 @@ export function convexHull(points: Point[]): Point[] {
   lower.pop();
   upper.pop();
   return lower.concat(upper);
-}
-
-/**
- * The raw hull enclosing a province's cities, before smoothing — the shape
- * used both to draw the province and to keep scattered terrain decoration
- * (§terrain.ts) inside it.
- *
- * Each city contributes a ring of sample points, so the hull of the whole set
- * is a rounded blob that works for two cities as well as three — no special
- * cases, and no hand-authored polygons per map.
- */
-export function provinceHull(points: Point[], radius = 52): Point[] {
-  if (points.length === 0) return [];
-  const samples: Point[] = [];
-  const RING = 20;
-  for (const p of points) {
-    for (let i = 0; i < RING; i++) {
-      const angle = (i / RING) * Math.PI * 2;
-      samples.push({ x: p.x + Math.cos(angle) * radius, y: p.y + Math.sin(angle) * radius });
-    }
-  }
-  return convexHull(samples);
-}
-
-function hashSeed(s: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return h >>> 0;
-}
-
-function pseudoAt(n: number): number {
-  const x = Math.sin(n * 12.9898) * 43758.5453123;
-  return x - Math.floor(x);
-}
-
-/**
- * Perturbs a closed ring of points outward/inward from its centroid: a slow
- * three-lobed wobble for the big irregular sweep of a coastline, plus a
- * faster per-point jag for the small nicks and inlets. Both terms are seeded
- * off `seed`, so the same province always roughens the same way.
- */
-export function jitterPolygon(points: readonly Point[], seed: string, amplitude: number): Point[] {
-  if (amplitude <= 0 || points.length < 3) return points.slice();
-  const c = centroid(points as Point[]);
-  const n = points.length;
-  const base = hashSeed(seed);
-  const phase = (base % 1000) / 1000;
-  return points.map((p, i) => {
-    const dx = p.x - c.x;
-    const dy = p.y - c.y;
-    const dist = Math.hypot(dx, dy) || 1;
-    const ux = dx / dist;
-    const uy = dy / dist;
-    const t = i / n;
-    const lobe = Math.sin(t * Math.PI * 2 * 3 + phase * Math.PI * 2);
-    const jag = pseudoAt(base + i * 97.13) * 2 - 1;
-    const offset = amplitude * (lobe * 0.55 + jag * 0.45);
-    return { x: p.x + ux * offset, y: p.y + uy * offset };
-  });
-}
-
-/**
- * A soft, hand-drawn-looking outline enclosing a province's cities.
- *
- * With a `seed`, the hull is roughened first via `jitterPolygon` so every
- * province's coast reads as inked rather than plotted — without a seed it
- * stays a clean smoothed blob, for callers that want that.
- */
-export function provinceOutline(
-  points: Point[],
-  radius = 52,
-  seed?: string,
-  roughness = 0,
-): string {
-  const hull = provinceHull(points, radius);
-  if (hull.length === 0) return '';
-  const rough = seed && roughness > 0 ? jitterPolygon(hull, seed, roughness) : hull;
-  return smoothClosedPath(rough, 0.42);
-}
-
-/** Catmull-Rom through the points, emitted as a closed cubic Bézier path. */
-export function smoothClosedPath(points: Point[], tension = 0.4): string {
-  const n = points.length;
-  if (n === 0) return '';
-  if (n < 3) {
-    return `M ${points[0]!.x} ${points[0]!.y}` + points.slice(1).map((p) => ` L ${p.x} ${p.y}`).join('') + ' Z';
-  }
-  const at = (i: number) => points[((i % n) + n) % n]!;
-  let d = `M ${at(0).x.toFixed(2)} ${at(0).y.toFixed(2)}`;
-  for (let i = 0; i < n; i++) {
-    const p0 = at(i - 1);
-    const p1 = at(i);
-    const p2 = at(i + 1);
-    const p3 = at(i + 2);
-    const c1 = { x: p1.x + ((p2.x - p0.x) / 6) * tension * 2, y: p1.y + ((p2.y - p0.y) / 6) * tension * 2 };
-    const c2 = { x: p2.x - ((p3.x - p1.x) / 6) * tension * 2, y: p2.y - ((p3.y - p1.y) / 6) * tension * 2 };
-    d += ` C ${c1.x.toFixed(2)} ${c1.y.toFixed(2)}, ${c2.x.toFixed(2)} ${c2.y.toFixed(2)}, ${p2.x.toFixed(2)} ${p2.y.toFixed(2)}`;
-  }
-  return `${d} Z`;
 }
 
 export function centroid(points: Point[]): Point {
@@ -255,7 +153,7 @@ export function fitViewport(
   map: MapDefinition,
   width: number,
   height: number,
-  padding = 40,
+  padding = 12,
 ): Viewport {
   const bounds = contentBounds(map);
   const contentW = bounds.maxX - bounds.minX;
@@ -271,7 +169,7 @@ export function fitViewport(
   };
 }
 
-/** Bounding box of every city, grown by the land margin drawn around them. */
+/** Bounding box of every city, grown by a small margin of coast around them. */
 export function contentBounds(map: MapDefinition): {
   minX: number;
   minY: number;
@@ -280,27 +178,20 @@ export function contentBounds(map: MapDefinition): {
 } {
   const xs = map.cities.map((c) => c.x);
   const ys = map.cities.map((c) => c.y);
-  const margin = LAND_RADIUS + 34;
   return {
-    minX: Math.min(...xs) - margin,
-    minY: Math.min(...ys) - margin,
-    maxX: Math.max(...xs) + margin,
-    maxY: Math.max(...ys) + margin,
+    minX: Math.min(...xs) - FIT_MARGIN,
+    minY: Math.min(...ys) - FIT_MARGIN,
+    maxX: Math.max(...xs) + FIT_MARGIN,
+    maxY: Math.max(...ys) + FIT_MARGIN,
   };
 }
 
-/**
- * How much land is drawn around a city, and how wide the land is along a road.
- * These are the two numbers that decide whether the board reads as a continent
- * with an inland sea, or as a spindly web of islands.
- */
-export const LAND_RADIUS = 44;
-export const LAND_ROAD_WIDTH = 78;
-export const LAND_CAPITAL_RADIUS = 56;
+/** Land to show beyond the outermost cities when the camera frames the whole board. */
+const FIT_MARGIN = 52;
 /** How far the coastline rim extends beyond the land itself. */
 export const COAST_WIDTH = 9;
 
-export function clampViewport(v: Viewport, min = 0.35, max = 3.2): Viewport {
+export function clampViewport(v: Viewport, min = 0.5, max = 3.2): Viewport {
   return { ...v, scale: Math.min(max, Math.max(min, v.scale)) };
 }
 
